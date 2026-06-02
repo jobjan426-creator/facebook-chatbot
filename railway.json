@@ -1,12 +1,13 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "cd backend && npm run db:migrate && npm run db:seed && npm start",
+    "startCommand": "cd /app/backend && node ../node_modules/prisma/build/index.js db push --accept-data-loss && node ../node_modules/tsx/dist/cli.mjs prisma/seed.ts && npm start",
     "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 30,
+    "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }

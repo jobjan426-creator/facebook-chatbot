@@ -15,8 +15,6 @@ backend/public/
 *.log
 npm-debug.log*
 
-# Prisma
-backend/prisma/migrations/
 
 # OS
 .DS_Store
@@ -28,3 +26,9 @@ Thumbs.db
 
 # Railway
 .railway/
+
+# Executables / installers
+*.exe
+*.msi
+*.dmg
+*.pkg

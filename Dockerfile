@@ -20,4 +20,4 @@ RUN npm run build
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "cd backend && node ../node_modules/prisma/build/index.js migrate deploy && node ../node_modules/tsx/dist/cli.mjs prisma/seed.ts && npm start"]
+CMD ["sh", "-c", "cd /app/backend && node ../node_modules/prisma/build/index.js db push --accept-data-loss && node ../node_modules/tsx/dist/cli.mjs prisma/seed.ts && npm start"]
