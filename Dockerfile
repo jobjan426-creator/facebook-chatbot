@@ -14,10 +14,13 @@ RUN npm ci
 # Copy all source
 COPY . .
 
+# Make startup script executable
+RUN chmod +x /app/start.sh
+
 # Generate Prisma client and build
 RUN cd backend && node "../node_modules/prisma/build/index.js" generate
 RUN npm run build
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "cd /app/backend && (node ../node_modules/prisma/build/index.js db push --accept-data-loss || echo 'db push failed, continuing') && (node ../node_modules/tsx/dist/cli.mjs prisma/seed.ts || echo 'seed failed, continuing') && npm start"]
+CMD ["/app/start.sh"]
