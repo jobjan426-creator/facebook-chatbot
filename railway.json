@@ -5,10 +5,9 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "cd /app/backend && npm start",
+    "startCommand": "node -e \"console.log('CONTAINER_ALIVE'); console.log('Node:', process.version); console.log('CWD:', process.cwd()); require('fs').readdirSync('/app').forEach(f => console.log('  /app/' + f)); process.exit(1)\"",
     "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 120,
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 3
+    "healthcheckTimeout": 30,
+    "restartPolicyType": "NEVER"
   }
 }
