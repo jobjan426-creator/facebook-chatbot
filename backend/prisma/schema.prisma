@@ -128,7 +128,7 @@ model Conversation {
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
   tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel  TentantChannel? @relation(fields: [channelId], references: [id])
+  channel  TenantChannel? @relation(fields: [channelId], references: [id])
   messages Message[]
 
   @@unique([tenantId, channelType, contactIdentifier])
