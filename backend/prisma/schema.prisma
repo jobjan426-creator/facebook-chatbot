@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -121,13 +122,13 @@ model Conversation {
   assignedOperatorId  String?            @map("assigned_operator_id")
   lastHumanActivityAt DateTime?          @map("last_human_activity_at")
   handoffReason       String?            @map("handoff_reason")
-  source              String             @default("direct") // direct | comment_funnel
+  source              String             @default("direct")
   triggerPostId       String?            @map("trigger_post_id")
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
   tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel  TenantChannel? @relation(fields: [channelId], references: [id])
+  channel  TentantChannel? @relation(fields: [channelId], references: [id])
   messages Message[]
 
   @@unique([tenantId, channelType, contactIdentifier])
@@ -140,8 +141,8 @@ model Message {
   tenantId       String   @map("tenant_id")
   content        String
   mediaUrl       String?  @map("media_url")
-  mediaType      String?  @map("media_type") // text | audio | image
-  sentBy         String   @map("sent_by") // 'ai' | 'customer' | operator user_id
+  mediaType      String?  @map("media_type")
+  sentBy         String   @map("sent_by")
   aiConfidence   Float?   @map("ai_confidence")
   createdAt      DateTime @default(now()) @map("created_at")
 
