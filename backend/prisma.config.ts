@@ -4,8 +4,9 @@ import { PrismaPg } from '@prisma/adapter-pg'
 
 export default defineConfig({
   schema: './prisma/schema.prisma',
+  datasourceUrl: process.env.DATABASE_URL,
   migrate: {
-    async adapter(env) {
+    adapter(env) {
       const pool = new Pool({ connectionString: env.DATABASE_URL })
       return new PrismaPg(pool)
     },
