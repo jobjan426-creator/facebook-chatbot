@@ -5,9 +5,10 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "cd /app/backend && node -e \"process.on('uncaughtException', e => { console.error('CRASH:', e.message, e.stack); process.exit(1); }); process.on('unhandledRejection', e => { console.error('REJECT:', e); process.exit(1); }); console.log('Loading server...'); require('./dist/server.js'); console.log('Server loaded');\"",
+    "startCommand": "node /app/backend/dist/server.js",
     "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 60,
-    "restartPolicyType": "NEVER"
+    "healthcheckTimeout": 120,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
   }
 }
