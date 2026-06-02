@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "node -e \"console.log('CONTAINER_ALIVE'); console.log('Node:', process.version); console.log('CWD:', process.cwd()); require('fs').readdirSync('/app').forEach(f => console.log('  /app/' + f)); process.exit(1)\"",
+    "startCommand": "node -e \"const fs=require('fs'); const exists=fs.existsSync('/app/backend/dist/server.js'); console.log('dist/server.js exists:', exists); if(exists){ console.log('First 3 lines:', fs.readFileSync('/app/backend/dist/server.js','utf8').split('\\n').slice(0,3).join('\\n')); } console.log('backend dist files:', fs.readdirSync('/app/backend/dist').join(', ')); process.exit(0)\"",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "NEVER"
