@@ -1,3 +1,4 @@
+// Auth middleware - supports Bearer token and query param token for OAuth
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { env } from '../config/index.js'
