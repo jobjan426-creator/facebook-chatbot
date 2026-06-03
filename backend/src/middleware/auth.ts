@@ -3,41 +3,49 @@ import jwt from 'jsonwebtoken'
 import { env } from '../config/index.js'
 
 export interface JwtPayload {
-  userId: string
-  role: 'super_admin' | 'tenant_admin'
-  tenantId?: string
+    userId: string
+    role: 'super_admin' | 'tenant_admin'
+    tenantId?: string
 }
 
 declare global {
-  namespace Express {
-    interface Request {
-      user: JwtPayload
-      tenantScope: string | 'ALL'
+    namespace Express {
+          interface Request {
+                  user: JwtPayload
+                  tenantScope: string | 'ALL'
+          }
     }
-  }
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const header = req.headers.authorization
-  if (!header?.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Missing token' })
-    return
+    const header = req.headers.authorization
+    // Support token from Authorization header OR query param (needed for OAuth redirects)
+  let token: string | undefined
+
+  if (header?.startsWith('Bearer ')) {
+        token = header.slice(7)
+  } else if (req.query.token && typeof req.query.token === 'string') {
+        token = req.query.token
   }
 
-  const token = header.slice(7)
+  if (!token) {
+        res.status(401).json({ error: 'Missing token' })
+        return
+  }
+
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload
-    req.user = payload
-    next()
+        const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload
+        req.user = payload
+        next()
   } catch {
-    res.status(401).json({ error: 'Invalid or expired token' })
+        res.status(401).json({ error: 'Invalid or expired token' })
   }
 }
 
 export function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (req.user?.role !== 'super_admin') {
-    res.status(403).json({ error: 'Super-admin access required' })
-    return
-  }
-  next()
+    if (req.user?.role !== 'super_admin') {
+          res.status(403).json({ error: 'Super-admin access required' })
+          return
+    }
+    next()
 }
