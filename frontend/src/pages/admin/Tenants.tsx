@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api, TenantWithOwner, CreateTenantDto } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export default function Tenants() {
+  const navigate = useNavigate()
   const [tenants, setTenants] = useState<TenantWithOwner[]>([])
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState<CreateTenantDto>({
@@ -121,15 +123,21 @@ export default function Tenants() {
           </thead>
           <tbody>
             {tenants.map((t) => (
-              <tr key={t.id} className="border-b border-zinc-100 hover:bg-zinc-50">
-                <td className="px-4 py-3 font-medium text-zinc-900">{t.name}</td>
+              <tr
+                key={t.id}
+                className="border-b border-zinc-100 hover:bg-indigo-50/40 cursor-pointer transition-colors"
+                onClick={() => navigate(`/admin/tenants/${t.id}/onboarding`)}
+              >
+                <td className="px-4 py-3 font-medium text-zinc-900">
+                  <span className="group-hover:text-indigo-700">{t.name}</span>
+                </td>
                 <td className="px-4 py-3 text-zinc-600">{t.owner.email}</td>
                 <td className="px-4 py-3">
                   <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABEL[t.status]}</Badge>
                 </td>
                 <td className="px-4 py-3 text-zinc-600">{t._count.conversations}</td>
                 <td className="px-4 py-3 text-zinc-500">{formatDate(t.createdAt)}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-2 justify-end">
                     {t.status === 'active' && (
                       <Button size="sm" variant="outline" onClick={() => handleSuspend(t.id)}>Зогсоох</Button>
