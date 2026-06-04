@@ -66,7 +66,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </nav>
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-y-auto">
         {children}
       </main>
     </div>
