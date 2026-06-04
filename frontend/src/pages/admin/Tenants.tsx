@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { api, TenantWithOwner, CreateTenantDto } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,6 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export default function Tenants() {
-  const navigate = useNavigate()
   const [tenants, setTenants] = useState<TenantWithOwner[]>([])
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState<CreateTenantDto>({
@@ -122,34 +121,42 @@ export default function Tenants() {
             </tr>
           </thead>
           <tbody>
-            {tenants.map((t) => (
-              <tr
-                key={t.id}
-                className="border-b border-zinc-100 hover:bg-indigo-50/40 cursor-pointer transition-colors"
-                onClick={() => navigate(`/admin/tenants/${t.id}/onboarding`)}
-              >
-                <td className="px-4 py-3 font-medium text-zinc-900">
-                  <span className="group-hover:text-indigo-700">{t.name}</span>
-                </td>
-                <td className="px-4 py-3 text-zinc-600">{t.owner.email}</td>
-                <td className="px-4 py-3">
-                  <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABEL[t.status]}</Badge>
-                </td>
-                <td className="px-4 py-3 text-zinc-600">{t._count.conversations}</td>
-                <td className="px-4 py-3 text-zinc-500">{formatDate(t.createdAt)}</td>
-                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex gap-2 justify-end">
-                    {t.status === 'active' && (
-                      <Button size="sm" variant="outline" onClick={() => handleSuspend(t.id)}>Зогсоох</Button>
-                    )}
-                    {t.status === 'suspended' && (
-                      <Button size="sm" variant="outline" onClick={() => handleActivate(t.id)}>Идэвхжүүлэх</Button>
-                    )}
-                    <Button size="sm" variant="destructive" onClick={() => handleDelete(t.id)}>Устгах</Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {tenants.map((t) => {
+              const href = `/admin/tenants/${t.id}/onboarding`
+              const cell = 'block px-4 py-3 hover:bg-indigo-50/40 transition-colors'
+              return (
+                <tr key={t.id} className="border-b border-zinc-100 group">
+                  <td className="font-medium text-zinc-900 p-0">
+                    <Link to={href} className={cell}>{t.name}</Link>
+                  </td>
+                  <td className="text-zinc-600 p-0">
+                    <Link to={href} className={cell}>{t.owner.email}</Link>
+                  </td>
+                  <td className="p-0">
+                    <Link to={href} className={cell}>
+                      <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABEL[t.status]}</Badge>
+                    </Link>
+                  </td>
+                  <td className="text-zinc-600 p-0">
+                    <Link to={href} className={cell}>{t._count.conversations}</Link>
+                  </td>
+                  <td className="text-zinc-500 p-0">
+                    <Link to={href} className={cell}>{formatDate(t.createdAt)}</Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2 justify-end">
+                      {t.status === 'active' && (
+                        <Button size="sm" variant="outline" onClick={() => handleSuspend(t.id)}>Зогсоох</Button>
+                      )}
+                      {t.status === 'suspended' && (
+                        <Button size="sm" variant="outline" onClick={() => handleActivate(t.id)}>Идэвхжүүлэх</Button>
+                      )}
+                      <Button size="sm" variant="destructive" onClick={() => handleDelete(t.id)}>Устгах</Button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
             {tenants.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">Тенант байхгүй байна</td>
