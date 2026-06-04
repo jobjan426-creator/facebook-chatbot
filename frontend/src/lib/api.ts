@@ -163,6 +163,14 @@ export const api = {
 
   disconnectChannel: (id: string) =>
     request(`${BASE}/channels/${id}`, { method: 'DELETE' }),
+
+  connectFacebookManual: (data: { pageId: string; pageName?: string; accessToken: string }, tenantId?: string) => {
+    const qs = tenantId ? `?tenantId=${tenantId}` : ''
+    return request(`${BASE}/channels/facebook/manual${qs}`, {
+      method: 'POST',
+      body: JSON.stringify({ ...data, tenantId }),
+    })
+  },
 }
 
 // Types

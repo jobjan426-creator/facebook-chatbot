@@ -43,6 +43,44 @@ router.delete('/:id', requireAuth, tenantScope, async (req: Request, res: Respon
   res.json({ success: true })
 })
 
+// --- Manual Token Entry ---
+
+router.post('/facebook/manual', requireAuth, tenantScope, async (req: Request, res: Response) => {
+  const tenantId = req.tenantScope !== 'ALL' ? req.tenantScope : (req.body.tenantId as string)
+  if (!tenantId) {
+    res.status(400).json({ error: 'tenantId is required' })
+    return
+  }
+  const { pageId, pageName, accessToken } = req.body as { pageId: string; pageName?: string; accessToken: string }
+  if (!pageId || !accessToken) {
+    res.status(400).json({ error: 'pageId and accessToken are required' })
+    return
+  }
+  try {
+    await subscribePageToWebhook(pageId, accessToken, ['messages', 'feed'])
+  } catch {
+    // Webhook subscription failure is non-fatal — token may still be valid
+  }
+  await prisma.tenantChannel.upsert({
+    where: { channelId_channelType: { channelId: pageId, channelType: ChannelType.facebook_page } },
+    create: {
+      tenantId,
+      channelType: ChannelType.facebook_page,
+      channelId: pageId,
+      channelName: pageName || `FB Page ${pageId}`,
+      accessToken: encrypt(accessToken),
+      isActive: true,
+    },
+    update: {
+      accessToken: encrypt(accessToken),
+      channelName: pageName || `FB Page ${pageId}`,
+      isActive: true,
+      tenantId,
+    },
+  })
+  res.json({ success: true })
+})
+
 // --- OAuth Flows ---
 
 router.get('/oauth/facebook', requireAuth, (req: Request, res: Response) => {
