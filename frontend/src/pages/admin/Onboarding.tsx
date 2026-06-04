@@ -33,6 +33,8 @@ export default function Onboarding() {
   const [activating, setActivating] = useState(false)
   const [activateMsg, setActivateMsg] = useState('')
 
+  const [loadError, setLoadError] = useState('')
+
   useEffect(() => {
     if (!tenantId) return
     Promise.all([
@@ -44,8 +46,21 @@ export default function Onboarding() {
       setApiKeys(k)
       setChannels(c)
       setPersona(s.aiPersona || '')
+    }).catch((err) => {
+      setLoadError(err instanceof Error ? err.message : 'Өгөгдөл ачааллахад алдаа гарлаа')
     })
   }, [tenantId])
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <p className="text-red-500 text-sm font-medium">{loadError}</p>
+        <button onClick={() => window.location.reload()} className="text-xs text-indigo-600 hover:underline">
+          Дахин ачааллах
+        </button>
+      </div>
+    )
+  }
 
   if (!settings || !apiKeys) {
     return (
