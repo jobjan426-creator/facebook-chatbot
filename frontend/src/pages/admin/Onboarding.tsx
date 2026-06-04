@@ -61,6 +61,7 @@ export default function Onboarding() {
   const hasFacebook = channels.some((c) => c.channelType === 'facebook_page' && c.isActive)
   const hasInstagram = channels.some((c) => c.channelType === 'instagram' && c.isActive)
   const alreadyActive = settings.status === 'active'
+  const authToken = localStorage.getItem('token') ?? ''
 
   const steps = [
     { id: 1, label: 'API Keys', done: !!apiKeys.geminiKey },
@@ -240,7 +241,7 @@ export default function Onboarding() {
             <div className="flex items-center gap-3 pt-1">
               <Button
                 onClick={saveApiKeys}
-                disabled={savingKeys || (!newKeys.geminiKey && !newKeys.openaiKey && !newKeys.xaiKey)}
+                disabled={savingKeys}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 {savingKeys ? 'Хадгалж байна...' : 'Keys хадгалах'}
@@ -268,7 +269,7 @@ export default function Onboarding() {
                 <FeedbackMsg state={personaMsg} />
                 <Button
                   onClick={savePersona}
-                  disabled={savingPersona || persona.length < 10}
+                  disabled={savingPersona || persona.length === 0}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   {savingPersona ? 'Хадгалж байна...' : 'Хадгалах'}
@@ -358,7 +359,7 @@ export default function Onboarding() {
                     Facebook бүртгэлээр нэвтрэн зөвшөөрлийн дэлгэц гарна. Page admin эрх шаардлагатай.
                   </p>
                   <a
-                    href={`/api/channels/oauth/facebook?tenantId=${tenantId}`}
+                    href={`/api/channels/oauth/facebook?tenantId=${tenantId}&token=${authToken}`}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1877F2] text-white text-sm font-semibold rounded-xl hover:bg-[#166FE5] transition-colors shadow-md shadow-blue-500/20"
                   >
                     <FbIcon />
@@ -383,7 +384,7 @@ export default function Onboarding() {
                 Instagram Professional Account холбоно. Facebook Business Manager-тай хамт тохируулна.
               </p>
               <a
-                href={`/api/channels/oauth/instagram?tenantId=${tenantId}`}
+                href={`/api/channels/oauth/instagram?tenantId=${tenantId}&token=${authToken}`}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white text-sm font-semibold rounded-xl hover:opacity-90 transition-opacity shadow-md shadow-pink-500/20"
               >
                 <IgIcon />
