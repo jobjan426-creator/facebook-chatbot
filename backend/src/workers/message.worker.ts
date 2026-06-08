@@ -16,80 +16,80 @@ import pino from 'pino'
 const logger = pino()
 
 interface FlushBufferJob {
-  tenantId: string
-  senderId: string
-  conversationId: string
-  channelId: string
+    tenantId: string
+    senderId: string
+    conversationId: string
+    channelId: string
 }
 
 interface ProcessMessagesJob {
-  tenantId: string
-  senderId: string
-  conversationId: string
-  channelId: string
-  messages: BufferedMessage[]
+    tenantId: string
+    senderId: string
+    conversationId: string
+    channelId: string
+    messages: BufferedMessage[]
 }
 
 async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
-  const { tenantId, senderId, conversationId, channelId, messages } = job.data
+    const { tenantId, senderId, conversationId, channelId, messages } = job.data
 
   const conversation = await prisma.conversation.findUnique({
-    where: { id: conversationId },
+        where: { id: conversationId },
   })
 
   // Double-check: human might have taken over during buffer wait
   if (
-    conversation?.status === ConversationStatus.human_active ||
-    conversation?.status === ConversationStatus.awaiting_human
-  ) {
-    logger.info({ conversationId }, 'Skipping AI — human active')
-    return
+        conversation?.status === ConversationStatus.human_active ||
+        conversation?.status === ConversationStatus.awaiting_human
+      ) {
+        logger.info({ conversationId }, 'Skipping AI - human active')
+        return
   }
 
   const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    include: { apiKeys: true },
+        where: { id: tenantId },
+        include: { apiKeys: true },
   })
 
   if (!tenant || tenant.status !== 'active') return
 
   const channel = await prisma.tenantChannel.findUnique({ where: { id: channelId } })
-  if (!channel) return
+    if (!channel) return
 
   // Process each message: transcribe audio if needed
   const processedTexts: string[] = []
-  let imageUrl: string | undefined
+      let imageUrl: string | undefined
 
   for (const msg of messages as BufferedMessage[]) {
-    if (msg.mediaType === 'audio' && msg.mediaUrl) {
-      try {
-        const transcript = await transcribeAudio(msg.mediaUrl, tenantId, conversationId)
-        processedTexts.push(`[Дуут мессеж]: ${transcript}`)
-      } catch (err) {
-        logger.error({ err }, 'Voice transcription failed')
-        processedTexts.push(msg.text || '[Дуут мессеж]')
-      }
-    } else if (msg.mediaType === 'image' && msg.mediaUrl) {
-      imageUrl = msg.mediaUrl
-      processedTexts.push(msg.text || '[Зураг]')
-    } else {
-      if (msg.text) processedTexts.push(msg.text)
-    }
+        if (msg.mediaType === 'audio' && msg.mediaUrl) {
+                try {
+                          const transcript = await transcribeAudio(msg.mediaUrl, tenantId, conversationId)
+                          processedTexts.push(`[Дуут мессеж]: ${transcript}`)
+                } catch (err) {
+                          logger.error({ err }, 'Voice transcription failed')
+                          processedTexts.push(msg.text || '[Дуут мессеж]')
+                }
+        } else if (msg.mediaType === 'image' && msg.mediaUrl) {
+                imageUrl = msg.mediaUrl
+                processedTexts.push(msg.text || '[Зураг]')
+        } else {
+                if (msg.text) processedTexts.push(msg.text)
+        }
   }
 
   const combinedText = processedTexts.join('\n')
-  if (!combinedText && !imageUrl) return
+    if (!combinedText && !imageUrl) return
 
   // Build conversation history (last 20 messages)
   const history = await prisma.message.findMany({
-    where: { conversationId },
-    orderBy: { createdAt: 'asc' },
-    take: 20,
+        where: { conversationId },
+        orderBy: { createdAt: 'asc' },
+        take: 20,
   })
 
   const coreMessages: CoreMessage[] = history.map((m) => ({
-    role: m.sentBy === 'customer' ? 'user' : 'assistant',
-    content: m.content,
+        role: m.sentBy === 'ai' ? 'assistant' : 'user',
+        content: m.content,
   }))
 
   // Add current buffered messages as final user turn
@@ -99,66 +99,82 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
   const ragContext = await queryKnowledgeBase(tenantId, combinedText).catch(() => '')
 
   // Generate AI reply
-  const replyText = await generateReply({
-    tenant,
-    history: coreMessages,
-    ragContext,
-    imageUrl,
-    conversationId,
-  })
+  let replyText: string
+    try {
+          replyText = await generateReply({
+                  tenant,
+                  history: coreMessages,
+                  ragContext,
+                  imageUrl,
+                  conversationId,
+          })
+    } catch (err) {
+          logger.error({ err, tenantId, conversationId }, 'generateReply failed')
+          return
+    }
+
+  if (!replyText || replyText.trim() === '') {
+        logger.warn({ conversationId }, 'generateReply returned empty text, skipping send')
+        return
+  }
 
   // Send via Meta API
-  await sendMessage(channel, senderId, replyText)
+  try {
+        await sendMessage(channel, senderId, replyText)
+  } catch (err) {
+        logger.error({ err, conversationId, senderId }, 'sendMessage failed')
+  }
 
   // Save AI message to DB
   const savedMsg = await prisma.message.create({
-    data: {
-      conversationId,
-      tenantId,
-      content: replyText,
-      sentBy: 'ai',
-    },
+        data: {
+                conversationId,
+                tenantId,
+                content: replyText,
+                role: 'assistant',
+                sentBy: 'ai',
+        },
   })
 
   // Emit to dashboard
   emitToTenant(tenantId, 'new_message', {
-    conversationId,
-    message: savedMsg,
+        conversationId,
+        message: savedMsg,
   })
 
   // Update conversation updatedAt
   await prisma.conversation.update({
-    where: { id: conversationId },
-    data: { updatedAt: new Date() },
+        where: { id: conversationId },
+        data: { updatedAt: new Date() },
   })
 }
 
 async function processFlushBuffer(job: Job<FlushBufferJob>): Promise<void> {
-  await flushBuffer(job.data.tenantId, job.data.senderId, job.data.conversationId, job.data.channelId)
+    await flushBuffer(job.data.tenantId, job.data.senderId, job.data.conversationId, job.data.channelId)
 }
 
 export function startMessageWorker(): void {
-  const worker = new Worker(
-    'messages',
-    async (job: Job) => {
-      if (job.name === 'flush-buffer') {
-        await processFlushBuffer(job as Job<FlushBufferJob>)
-      } else if (job.name === 'process-messages') {
-        await processMessages(job as Job<ProcessMessagesJob>)
+    const worker = new Worker(
+          'messages',
+          async (job: Job) => {
+                  if (job.name === 'flush-buffer') {
+                            await processFlushBuffer(job as Job<FlushBufferJob>)
+                  } else if (job.name === 'process-messages') {
+                            await processMessages(job as Job<ProcessMessagesJob>)
+                  }
+          },
+      {
+              connection: bullConnection,
+              concurrency: 10,
       }
-    },
-    {
-      connection: bullConnection,
-      concurrency: 10,
-    }
-  )
+        )
 
   worker.on('failed', (job, err) => {
-    logger.error({ jobId: job?.id, jobName: job?.name, err }, 'Job failed')
+        logger.error({ jobId: job?.id, jobName: job?.name, err }, 'Job failed')
   })
 
   worker.on('error', (err) => {
-    logger.error({ err }, 'Worker error')
+        logger.error({ err }, 'Worker error')
   })
 
   logger.info('Message worker started')
