@@ -212,4 +212,22 @@ router.get('/oauth/instagram/callback', async (req: Request, res: Response) => {
   }
 })
 
+// Admin: Fix channel IDs by fetching real Page ID from Graph API
+router.post('/fix-channel-id/:channelId', requireAuth, tenantScope, async (req: Request, res: Response) => {
+    try {
+          const channel = await prisma.tenantChannel.findUnique({ where: { id: req.params.channelId } })
+          if (!channel) { res.status(404).json({ error: 'Channel not found' }); return }
+          const accessToken = decrypt(channel.accessToken)
+          const pageRes = await fetch(`https://graph.facebook.com/v22.0/me?fields=id,name&access_token=${accessToken}`)
+          const pageData = await pageRes.json() as { id?: string; name?: string; error?: unknown }
+          if (!pageData.id) { res.status(400).json({ error: 'Could not get page ID', detail: pageData }); return }
+          await prisma.tenantChannel.update({
+                  where: { id: req.params.channelId },
+                  data: { channelId: pageData.id, channelName: pageData.name || channel.channelName },
+          })
+          res.json({ success: true, pageId: pageData.id, pageName: pageData.name })
+    } catch (err) {
+          res.status(500).json({ error: String(err) })
+    }
+})
 export default router
