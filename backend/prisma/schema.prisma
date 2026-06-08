@@ -60,7 +60,7 @@ model Tenant {
   timezone                String       @default("Asia/Ulaanbaatar")
   industry                String?
   textModel               String       @default("gpt-4o") @map("text_model")
-  visionModel             String       @default("gemini-1.5-flash") @map("vision_model")
+  visionModel             String       @default("gemini-3-flash") @map("vision_model")
   sttModel                String       @default("whisper-1") @map("stt_model")
   commentAutoReplyEnabled Boolean      @default(true) @map("comment_auto_reply_enabled")
   commentAutoReplyText    String       @default("Сайн уу! Танд дэлгэрэнгүй мэдээлэл илгээлээ, inbox-оо шалгана уу") @map("comment_auto_reply_text")
