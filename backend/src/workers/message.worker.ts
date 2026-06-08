@@ -95,7 +95,7 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
 
   const coreMessages: CoreMessage[] = history.map((m) => ({
             role: (m.sentBy === 'ai' ? 'assistant' : 'user') as 'assistant' | 'user',
-            content: m.content,
+            content: m.content ?? '',
   }))
 
   coreMessages.push({ role: 'user', content: combinedText })
