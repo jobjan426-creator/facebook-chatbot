@@ -77,3 +77,8 @@ export function calcTextCost(
     const p = MODEL_PRICING.text[modelId]
     return (inputTokens / 1_000_000) * p.inputPer1M + (outputTokens / 1_000_000) * p.outputPer1M
 }
+
+export function calcSttCost(durationSeconds: number): number {
+        const p = MODEL_PRICING.stt['whisper-1']
+        return (durationSeconds / 60) * p.costPerMinute
+}
