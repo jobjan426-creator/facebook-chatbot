@@ -65,7 +65,7 @@ export async function handleMessage(
   const savedMsg = await prisma.message.create({
     data: {
       conversationId: conversation.id,
-      tenantId,
+      
       content: text || `[${attachment?.type || 'attachment'}]`,
       mediaUrl,
       mediaType,
