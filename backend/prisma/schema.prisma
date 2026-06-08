@@ -45,32 +45,31 @@ model User {
   forcePasswordChange Boolean   @default(false) @map("force_password_change")
   createdAt           DateTime  @default(now()) @map("created_at")
   lastLoginAt         DateTime? @map("last_login_at")
-
-  tenant Tenant? @relation("TenantOwner")
+  tenant              Tenant?   @relation("TenantOwner")
 
   @@map("users")
 }
 
 model Tenant {
-  id                         String       @id @default(uuid())
-  name                       String
-  status                     TenantStatus @default(pending_setup)
-  ownerUserId                String       @unique @map("owner_user_id")
-  aiPersona                  String       @default("") @map("ai_persona")
-  timezone                   String       @default("Asia/Ulaanbaatar")
-  industry                   String?
-  textModel                  String       @default("gemini-3-flash") @map("text_model")
-  visionModel                String       @default("gpt-5.1") @map("vision_model")
-  sttModel                   String       @default("whisper-1") @map("stt_model")
-  commentAutoReplyEnabled    Boolean      @default(true) @map("comment_auto_reply_enabled")
-  commentAutoReplyText       String       @default("Сайн уу! Танд дэлгэрэнгүй мэдээлэл илгээлээ, inbox-оо шалгана уу 📩") @map("comment_auto_reply_text")
-  commentDmOpenerText        String       @default("Сайн байна уу! Та манай постод сонирхол илэрхийлсэнд баярлалаа 🙏 Танд дэлгэрэнгүй мэдээлэл өгөхөд бэлэн байна. Юуны талаар мэдэхийг хүсч байна вэ?") @map("comment_dm_opener_text")
-  knowledgeBaseCorpusId      String?      @map("knowledge_base_corpus_id")
-  createdAt                  DateTime     @default(now()) @map("created_at")
-  suspendedAt                DateTime?    @map("suspended_at")
-  suspendedReason            String?      @map("suspended_reason")
+  id                      String    @id @default(uuid())
+  name                    String
+  status                  TenantStatus @default(pending_setup)
+  ownerUserId             String    @unique @map("owner_user_id")
+  aiPersona               String    @default("") @map("ai_persona")
+  timezone                String    @default("Asia/Ulaanbaatar")
+  industry                String?
+  textModel               String    @default("gpt-4o") @map("text_model")
+  visionModel             String    @default("gemini-1.5-flash") @map("vision_model")
+  sttModel                String    @default("whisper-1") @map("stt_model")
+  commentAutoReplyEnabled Boolean   @default(true) @map("comment_auto_reply_enabled")
+  commentAutoReplyText    String    @default("Сайн уу! Танд дэлгэрэнгүй мэдээлэл илгээлээ, inbox-оо шалгана уу") @map("comment_auto_reply_text")
+  commentDmOpenerText     String    @default("Сайн байна уу! Та манай пост сонирхол илэрхийлсэнд баярлалаа") @map("comment_dm_opener_text")
+  knowledgeBaseCorpusId   String?   @map("knowledge_base_corpus_id")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  suspendedAt             DateTime? @map("suspended_at")
+  suspendedReason         String?   @map("suspended_reason")
 
-  owner          User                 @relation("TenantOwner", fields: [ownerUserId], references: [id])
+  owner          User                  @relation("TenantOwner", fields: [ownerUserId], references: [id])
   channels       TenantChannel[]
   apiKeys        TenantApiKeys?
   conversations  Conversation[]
@@ -81,52 +80,45 @@ model Tenant {
 }
 
 model TenantChannel {
-  id            String      @id @default(uuid())
-  tenantId      String      @map("tenant_id")
-  channelType   ChannelType @map("channel_type")
-  channelId     String      @map("channel_id")
-  channelName   String?     @map("channel_name")
-  accessToken   String      @map("access_token")
-  tokenExpiresAt DateTime?  @map("token_expires_at")
-  isActive      Boolean     @default(true) @map("is_active")
-  connectedAt   DateTime    @default(now()) @map("connected_at")
+  id          String      @id @default(uuid())
+  tenantId    String      @map("tenant_id")
+  channelType ChannelType @map("channel_type")
+  channelId   String      @map("channel_id")
+  accessToken String      @map("access_token")
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
   conversations Conversation[]
 
-  @@unique([channelId, channelType])
+  @@unique([tenantId, channelType])
   @@map("tenant_channels")
 }
 
 model TenantApiKeys {
-  tenantId  String   @id @map("tenant_id")
-  openaiKey String?  @map("openai_key")
-  geminiKey String?  @map("gemini_key")
-  xaiKey    String?  @map("xai_key")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id        String  @id @default(uuid())
+  tenantId  String  @unique @map("tenant_id")
+  openaiKey String? @map("openai_key")
+  geminiKey String? @map("gemini_key")
+  xaiKey    String? @map("xai_key")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@map("tenant_api_keys")
 }
 
 model Conversation {
-  id                  String             @id @default(uuid())
-  tenantId            String             @map("tenant_id")
-  channelId           String?            @map("channel_id")
-  channelType         ChannelType        @map("channel_type")
-  contactIdentifier   String             @map("contact_identifier")
-  contactName         String?            @map("contact_name")
-  status              ConversationStatus @default(ai_active)
-  assignedOperatorId  String?            @map("assigned_operator_id")
-  lastHumanActivityAt DateTime?          @map("last_human_activity_at")
-  handoffReason       String?            @map("handoff_reason")
-  source              String             @default("direct")
-  triggerPostId       String?            @map("trigger_post_id")
-  createdAt           DateTime           @default(now()) @map("created_at")
-  updatedAt           DateTime           @updatedAt @map("updated_at")
+  id                String             @id @default(uuid())
+  tenantId          String             @map("tenant_id")
+  channelId         String?            @map("channel_id")
+  channelType       ChannelType        @map("channel_type")
+  contactIdentifier String             @map("contact_identifier")
+  status            ConversationStatus @default(ai_active)
+  handoffReason     String?            @map("handoff_reason")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
 
-  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant   Tenant         @relation(fields: [tenantId], references: [id])
   channel  TenantChannel? @relation(fields: [channelId], references: [id])
   messages Message[]
 
@@ -137,31 +129,27 @@ model Conversation {
 model Message {
   id             String   @id @default(uuid())
   conversationId String   @map("conversation_id")
-  tenantId       String   @map("tenant_id")
-  content        String
+  sentBy         String   @map("sent_by")
+  text           String?
   mediaUrl       String?  @map("media_url")
   mediaType      String?  @map("media_type")
-  sentBy         String   @map("sent_by")
-  aiConfidence   Float?   @map("ai_confidence")
   createdAt      DateTime @default(now()) @map("created_at")
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id])
 
-  @@index([conversationId, createdAt])
-  @@index([tenantId, createdAt])
   @@map("messages")
 }
 
 model TenantKnowledgeFile {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
-  fileName    String   @map("file_name")
-  fileSize    Int      @map("file_size")
+  filename    String
+  storagePath String   @map("storage_path")
   mimeType    String   @map("mime_type")
-  geminiFileId String? @map("gemini_file_id")
+  corpusId    String?  @map("corpus_id")
   uploadedAt  DateTime @default(now()) @map("uploaded_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@map("tenant_knowledge_files")
 }
@@ -169,18 +157,15 @@ model TenantKnowledgeFile {
 model AiUsageLog {
   id               String     @id @default(uuid())
   tenantId         String     @map("tenant_id")
-  timestamp        DateTime   @default(now())
+  conversationId   String?    @map("conversation_id")
   category         AiCategory
-  provider         String
   modelId          String     @map("model_id")
   inputTokens      Int        @default(0) @map("input_tokens")
   outputTokens     Int        @default(0) @map("output_tokens")
-  durationSeconds  Float?     @map("duration_seconds")
-  estimatedCostUsd Decimal    @default(0) @map("estimated_cost_usd") @db.Decimal(10, 6)
-  conversationId   String?    @map("conversation_id")
+  estimatedCostUsd Float      @default(0) @map("estimated_cost_usd")
+  createdAt        DateTime   @default(now()) @map("created_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
-  @@index([tenantId, timestamp])
-  @@map("ai_usage_log")
+  @@map("ai_usage_logs")
 }
