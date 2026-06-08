@@ -20,7 +20,7 @@ import channelsRouter from './routes/channels.js'
 import usageRouter from './routes/usage.js'
 
 const logger = pino({
-      transport: env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
+        transport: env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
 })
 
 const app = express()
@@ -29,28 +29,49 @@ app.use(helmet())
 app.use(cors({ origin: env.APP_URL, credentials: true }))
 
 // Save raw body for webhook signature verification BEFORE json parsing
+// Also parse JSON body for webhook routes manually after collecting raw body
 app.use((req: Request, _res: Response, next: NextFunction) => {
-      if (req.path.startsWith('/webhook')) {
-              let data = Buffer.alloc(0)
-              req.on('data', (chunk: Buffer) => {
-                        data = Buffer.concat([data, chunk])
-              })
-              req.on('end', () => {
-                        ;(req as Request & { rawBody: Buffer }).rawBody = data
-                        next()
-              })
-      } else {
-              next()
-      }
+        if (req.path.startsWith('/webhook')) {
+                  let data = Buffer.alloc(0)
+                  req.on('data', (chunk: Buffer) => {
+                              data = Buffer.concat([data, chunk])
+                  })
+                  req.on('end', () => {
+                              ;(req as Request & { rawBody: Buffer }).rawBody = data
+                              // Manually parse JSON body so req.body is available
+                               if (data.length > 0) {
+                                             try {
+                                                             req.body = JSON.parse(data.toString('utf8'))
+                                             } catch {
+                                                             req.body = {}
+                                             }
+                               }
+                              next()
+                  })
+        } else {
+                  next()
+        }
 })
 
-app.use(express.json())
-app.use(express.urlencoded({ extended: false }))
+// Only apply json/urlencoded parsers to non-webhook routes
+app.use((req: Request, res: Response, next: NextFunction) => {
+        if (req.path.startsWith('/webhook')) {
+                  return next()
+        }
+        express.json()(req, res, next)
+})
+app.use((req: Request, res: Response, next: NextFunction) => {
+        if (req.path.startsWith('/webhook')) {
+                  return next()
+        }
+        express.urlencoded({ extended: false })(req, res, next)
+})
+
 app.use(pinoHttp({ logger }))
 
 // Health check
 app.get('/api/health', (_req, res) => {
-      res.json({ status: 'ok', timestamp: new Date().toISOString() })
+        res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
 // Routes
@@ -66,33 +87,33 @@ app.use('/webhook', webhookRouter)
 
 // Serve frontend in production
 if (env.NODE_ENV === 'production') {
-      const path = require('path')
-      const publicPath = path.join(__dirname, '..', 'public')
-      app.use(express.static(publicPath))
-      app.get('*', (_req: import('express').Request, res: import('express').Response) => {
-              res.sendFile(path.join(publicPath, 'index.html'))
-      })
+        const path = require('path')
+        const publicPath = path.join(__dirname, '..', 'public')
+        app.use(express.static(publicPath))
+        app.get('*', (_req: import('express').Request, res: import('express').Response) => {
+                  res.sendFile(path.join(publicPath, 'index.html'))
+        })
 }
 
 const httpServer = createServer(app)
 initSocket(httpServer)
 
 async function start() {
-      try {
-              await prisma.$connect()
-              logger.info('Database connected')
+        try {
+                  await prisma.$connect()
+                  logger.info('Database connected')
 
-        // Start BullMQ worker
-        const { startMessageWorker } = await import('./workers/message.worker.js')
-              startMessageWorker()
+          // Start BullMQ worker
+          const { startMessageWorker } = await import('./workers/message.worker.js')
+                  startMessageWorker()
 
-        httpServer.listen(env.PORT, () => {
-                  logger.info(`Server running on port ${env.PORT}`)
-        })
-      } catch (err) {
-              logger.error(err, 'Failed to start server')
-              process.exit(1)
-      }
+          httpServer.listen(env.PORT, () => {
+                      logger.info(`Server running on port ${env.PORT}`)
+          })
+        } catch (err) {
+                  logger.error(err, 'Failed to start server')
+                  process.exit(1)
+        }
 }
 
 start()
