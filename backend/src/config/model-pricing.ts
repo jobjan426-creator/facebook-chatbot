@@ -11,9 +11,9 @@ export const MODEL_PRICING = {
                   isActive: true,
                   notes: 'ChatGPT 4o - текст, дуу хоолой, зураг дэмждэг',
           },
-          'gemini-1.5-flash': {
+          'gemini-3-flash': {
                   provider: 'google' as const,
-                  modelId: 'gemini-1.5-flash',
+                  modelId: 'gemini-3-flash',
                   displayName: 'Gemini 1.5 Flash',
                   inputPer1M: 0.075,
                   outputPer1M: 0.30,
@@ -44,9 +44,9 @@ export const MODEL_PRICING = {
                   avgCostPerImage: 0.005,
                   isActive: true,
           },
-          'gemini-1.5-flash': {
+          'gemini-3-flash': {
                   provider: 'google' as const,
-                  modelId: 'gemini-1.5-flash',
+                  modelId: 'gemini-3-flash',
                   displayName: 'Gemini 1.5 Flash Vision',
                   inputPer1M: 0.075,
                   outputPer1M: 0.30,
