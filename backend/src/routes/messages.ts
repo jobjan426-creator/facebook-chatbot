@@ -70,7 +70,7 @@ router.post('/', async (req: Request, res: Response) => {
   const savedMsg = await prisma.message.create({
     data: {
       conversationId,
-      tenantId: conversation.tenantId,
+      
       content: text,
       sentBy: req.user.userId,
     },
