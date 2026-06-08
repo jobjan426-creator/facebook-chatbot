@@ -30,10 +30,6 @@ function getTextProvider(tenant: TenantWithKeys) {
     if (!keys.geminiKey) throw new Error('Gemini API key not configured')
     return { model: createGoogleGenerativeAI({ apiKey: keys.geminiKey })(pricing.modelId), pricing }
   }
-  if (pricing.provider === 'xai') {
-    if (!keys.xaiKey) throw new Error('xAI API key not configured')
-    return { model: createXai({ apiKey: keys.xaiKey })(pricing.modelId), pricing }
-  }
   throw new Error(`Unknown provider for model ${modelId}`)
 }
 
