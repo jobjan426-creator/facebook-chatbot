@@ -230,4 +230,22 @@ router.post('/fix-channel-id/:channelId', requireAuth, tenantScope, async (req: 
           res.status(500).json({ error: String(err) })
     }
 })
+
+// Admin: Fix tenant AI models - update textModel and visionModel for existing tenants
+router.post('/fix-models/:tenantId', async (req: Request, res: Response) => {
+    try {
+          const { tenantId } = req.params
+          const { textModel, visionModel } = req.body as { textModel?: string; visionModel?: string }
+          const updated = await prisma.tenant.update({
+                  where: { id: tenantId },
+                  data: {
+                            ...(textModel ? { textModel } : {}),
+                            ...(visionModel ? { visionModel } : {}),
+                  },
+          })
+          res.json({ success: true, textModel: updated.textModel, visionModel: updated.visionModel })
+    } catch (err) {
+          res.status(500).json({ error: String(err) })
+    }
+})
 export default router
