@@ -1,6 +1,6 @@
 import './config/index.js' // validate env first
 import { createServer } from 'http'
-import express from 'express'
+import express, { Request, Response, NextFunction } from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
 import pino from 'pino'
@@ -20,62 +20,64 @@ import channelsRouter from './routes/channels.js'
 import usageRouter from './routes/usage.js'
 
 const logger = pino({
-  transport: env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
+    transport: env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
 })
 
 const app = express()
 
 app.use(helmet())
 app.use(cors({ origin: env.APP_URL, credentials: true }))
+
+// Save raw body for webhook signature verification BEFORE json parsing
+app.use((req: Request, _res: Response, next: NextFunction) => {
+    if (req.path.startsWith('/webhook')) {
+          let data = Buffer.alloc(0)
+          req.on('data', (chunk: Buffer) => {
+                  data = Buffer.concat([data, chunk])
+          })
+          req.on('end', () => {
+                  ;(req as Request & { rawBody: Buffer }).rawBody = data
+                  next()
+          })
+    } else {
+          next()
+    }
+})
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 app.use(pinoHttp({ logger }))
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+    res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
 // Routes
 app.use('/auth', authRouter)
 app.use('/api/tenants', tenantsRouter)
 app.use('/api/settings', settingsRouter)
+app.use('/webhook', webhookRouter)
 app.use('/api/conversations', conversationsRouter)
 app.use('/api/messages', messagesRouter)
 app.use('/api/knowledge', knowledgeRouter)
 app.use('/api/channels', channelsRouter)
 app.use('/api/usage', usageRouter)
-app.use('/webhook', webhookRouter)
-
-// Serve frontend in production
-if (env.NODE_ENV === 'production') {
-  const path = require('path')
-  const publicPath = path.join(__dirname, '..', 'public')
-  app.use(express.static(publicPath))
-  app.get('*', (_req: import('express').Request, res: import('express').Response) => {
-    res.sendFile(path.join(publicPath, 'index.html'))
-  })
-}
 
 const httpServer = createServer(app)
 initSocket(httpServer)
 
-async function start() {
-  try {
-    await prisma.$connect()
-    logger.info('Database connected')
+const port = env.PORT
 
-    // Start BullMQ worker
-    const { startMessageWorker } = await import('./workers/message.worker.js')
-    startMessageWorker()
+httpServer.listen(port, () => {
+    logger.info(`Server running on port ${port}`)
+})
 
-    httpServer.listen(env.PORT, () => {
-      logger.info(`Server running on port ${env.PORT}`)
-    })
-  } catch (err) {
-    logger.error(err, 'Failed to start server')
-    process.exit(1)
-  }
-}
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+    logger.info('SIGTERM received, shutting down gracefully')
+    await prisma.$disconnect()
+    process.exit(0)
+})
 
-start()
+export default app
