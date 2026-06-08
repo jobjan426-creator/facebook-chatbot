@@ -99,10 +99,10 @@ model TenantChannel {
 }
 
 model TenantApiKeys {
-  tenantId  String  @id @map("tenant_id")
-  openaiKey String? @map("openai_key")
-  geminiKey String? @map("gemini_key")
-  xaiKey    String? @map("xai_key")
+  tenantId  String   @id @map("tenant_id")
+  openaiKey String?  @map("openai_key")
+  geminiKey String?  @map("gemini_key")
+  xaiKey    String?  @map("xai_key")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -111,16 +111,20 @@ model TenantApiKeys {
 }
 
 model Conversation {
-  id                String             @id @default(uuid())
-  tenantId          String             @map("tenant_id")
-  channelId         String?            @map("channel_id")
-  channelType       ChannelType        @map("channel_type")
-  contactIdentifier String             @map("contact_identifier")
-  status            ConversationStatus @default(ai_active)
-  handoffReason     String?            @map("handoff_reason")
-  assignedOperatorId String?           @map("assigned_operator_id")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
+  id                  String             @id @default(uuid())
+  tenantId            String             @map("tenant_id")
+  channelId           String?            @map("channel_id")
+  channelType         ChannelType        @map("channel_type")
+  contactIdentifier   String             @map("contact_identifier")
+  contactName         String?            @map("contact_name")
+  status              ConversationStatus @default(ai_active)
+  assignedOperatorId  String?            @map("assigned_operator_id")
+  lastHumanActivityAt DateTime?          @map("last_human_activity_at")
+  handoffReason       String?            @map("handoff_reason")
+  source              String             @default("direct")
+  triggerPostId       String?            @map("trigger_post_id")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
 
   tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   channel  TenantChannel? @relation(fields: [channelId], references: [id])
@@ -134,7 +138,7 @@ model Message {
   id             String   @id @default(uuid())
   conversationId String   @map("conversation_id")
   sentBy         String   @map("sent_by")
-  text           String?
+  content        String?
   mediaUrl       String?  @map("media_url")
   mediaType      String?  @map("media_type")
   createdAt      DateTime @default(now()) @map("created_at")
@@ -145,13 +149,13 @@ model Message {
 }
 
 model TenantKnowledgeFile {
-  id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
-  filename    String
-  storagePath String   @map("storage_path")
-  mimeType    String   @map("mime_type")
-  corpusId    String?  @map("corpus_id")
-  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  fileName     String   @map("file_name")
+  fileSize     Int      @map("file_size")
+  mimeType     String   @map("mime_type")
+  geminiFileId String?  @map("gemini_file_id")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -161,15 +165,18 @@ model TenantKnowledgeFile {
 model AiUsageLog {
   id               String     @id @default(uuid())
   tenantId         String     @map("tenant_id")
-  conversationId   String?    @map("conversation_id")
+  timestamp        DateTime   @default(now())
   category         AiCategory
+  provider         String
   modelId          String     @map("model_id")
   inputTokens      Int        @default(0) @map("input_tokens")
   outputTokens     Int        @default(0) @map("output_tokens")
-  estimatedCostUsd Float      @default(0) @map("estimated_cost_usd")
-  createdAt        DateTime   @default(now()) @map("created_at")
+  durationSeconds  Float?     @map("duration_seconds")
+  estimatedCostUsd Decimal    @default(0) @map("estimated_cost_usd") @db.Decimal(10, 6)
+  conversationId   String?    @map("conversation_id")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@map("ai_usage_logs")
+  @@index([tenantId, timestamp])
+  @@map("ai_usage_log")
 }
