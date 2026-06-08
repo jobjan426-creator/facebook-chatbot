@@ -1,7 +1,7 @@
 import { generateText, CoreMessage } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import { createXai } from '@ai-sdk/xai'
+
 import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
 import { MODEL_PRICING, TextModelId, VisionModelId, calcTextCost } from '../config/model-pricing.js'
@@ -19,7 +19,7 @@ function getDecryptedKeys(keys: TenantApiKeys | null) {
 
 function getTextProvider(tenant: TenantWithKeys) {
   const modelId = tenant.textModel as TextModelId
-  const pricing = MODEL_PRICING.text[modelId]
+  const pricing = (MODEL_PRICING.text as any)[modelId]
   const keys = getDecryptedKeys(tenant.apiKeys)
 
   if (pricing.provider === 'openai') {
@@ -39,7 +39,7 @@ function getTextProvider(tenant: TenantWithKeys) {
 
 function getVisionProvider(tenant: TenantWithKeys) {
   const modelId = tenant.visionModel as VisionModelId
-  const pricing = MODEL_PRICING.vision[modelId]
+  const pricing = (MODEL_PRICING.vision as any)[modelId]
   const keys = getDecryptedKeys(tenant.apiKeys)
 
   if (pricing.provider === 'openai') {
