@@ -139,7 +139,7 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
   const savedMsg = await prisma.message.create({
             data: {
                         conversationId,
-                        tenantId,
+                        
                         content: replyText,
                         sentBy: 'ai',
             },
