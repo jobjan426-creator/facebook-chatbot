@@ -5,7 +5,7 @@ import FormData from 'form-data'
 import fetch from 'node-fetch'
 
 export async function transcribeAudio(
-  audioUrl: string,
+  audioUrl: string,h
   tenantId: string,
   conversationId?: string
 ): Promise<string> {
@@ -28,7 +28,6 @@ export async function transcribeAudio(
     contentType,
   })
   form.append('model', 'whisper-1')
-  form.append('language', 'mn') // Mongolian
   form.append('response_format', 'json')
 
   const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
