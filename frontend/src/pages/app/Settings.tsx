@@ -167,7 +167,7 @@ export default function Settings() {
             masked={apiKeys.openaiKey}
             value={newKeys.openaiKey}
             onChange={(v) => setNewKeys({ ...newKeys, openaiKey: v })}
-            hint="GPT-5.1 текст болон Whisper STT-д хэрэгтэй"
+            hint="GPT-4o текст болон Whisper STT-д хэрэгтэй"
           />
           <ApiKeyField
             label="Gemini API Key *"

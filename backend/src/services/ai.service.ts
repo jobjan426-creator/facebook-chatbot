@@ -61,7 +61,9 @@ export interface GenerateReplyOptions {
 export async function generateReply(opts: GenerateReplyOptions): Promise<string> {
   const { tenant, history, ragContext, imageUrl, imageBuffer, conversationId } = opts
 
-  const textModelId = tenant.textModel as TextModelId
+  const textModelId = (MODEL_PRICING.text[tenant.textModel as TextModelId]
+    ? tenant.textModel
+    : 'gemini-3-flash') as TextModelId
   const textModelConfig = MODEL_PRICING.text[textModelId]
 
   let systemPrompt = tenant.aiPersona
