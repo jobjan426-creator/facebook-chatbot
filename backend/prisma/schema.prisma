@@ -155,6 +155,7 @@ model TenantKnowledgeFile {
   fileSize     Int      @map("file_size")
   mimeType     String   @map("mime_type")
   geminiFileId String?  @map("gemini_file_id")
+  textContent  String?  @map("text_content")
   uploadedAt   DateTime @default(now()) @map("uploaded_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
