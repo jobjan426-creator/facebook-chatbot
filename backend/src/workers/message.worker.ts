@@ -11,6 +11,7 @@ import { emitToTenant } from '../socket/index.js'
 import { flushBuffer, BufferedMessage } from '../services/buffer.service.js'
 import { ConversationStatus } from '@prisma/client'
 import { CoreMessage } from 'ai'
+import fetch from 'node-fetch'
 import pino from 'pino'
 
 const logger = pino()
@@ -66,6 +67,7 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
 
   const processedTexts: string[] = []
           let imageUrl: string | undefined
+          let imageBuffer: Buffer | undefined
 
   for (const msg of messages as BufferedMessage[]) {
             if (msg.mediaType === 'audio' && msg.mediaUrl) {
@@ -78,6 +80,15 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
                         }
             } else if (msg.mediaType === 'image' && msg.mediaUrl) {
                         imageUrl = msg.mediaUrl
+                        // Download image on our server so AI models can access it (Meta CDN may block external requests)
+                        try {
+                                      const imgRes = await fetch(msg.mediaUrl)
+                                      if (imgRes.ok) {
+                                                    imageBuffer = await imgRes.buffer()
+                                      }
+                        } catch {
+                                      logger.warn({ mediaUrl: msg.mediaUrl }, 'Failed to download image — will pass URL directly')
+                        }
                         processedTexts.push(msg.text || '[Зураг]')
             } else {
                         if (msg.text) processedTexts.push(msg.text)
@@ -112,6 +123,7 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
                               history: coreMessages,
                               ragContext,
                               imageUrl,
+                              imageBuffer,
                               conversationId,
                   })
         } catch (err) {

@@ -54,11 +54,12 @@ export interface GenerateReplyOptions {
   history: CoreMessage[]
   ragContext?: string
   imageUrl?: string
+  imageBuffer?: Buffer
   conversationId?: string
 }
 
 export async function generateReply(opts: GenerateReplyOptions): Promise<string> {
-  const { tenant, history, ragContext, imageUrl, conversationId } = opts
+  const { tenant, history, ragContext, imageUrl, imageBuffer, conversationId } = opts
 
   const textModelId = tenant.textModel as TextModelId
   const textModelConfig = MODEL_PRICING.text[textModelId]
@@ -68,20 +69,23 @@ export async function generateReply(opts: GenerateReplyOptions): Promise<string>
   systemPrompt += `\n\nОдоогийн цаг: ${now}`
 
   if (ragContext) {
-    systemPrompt += `\n\nМэдлэгийн сангаас холбогдох мэдээлэл:\n${ragContext}`
+    systemPrompt += `\n\n## Мэдлэгийн сан (заавал дагах ёстой):\n${ragContext}\n\n⚠️ Дүрэм: Дээрх мэдлэгийн санд байгаа мэдээллийг ҮНДЭСЛЭН хариул. Мэдлэгийн санд байхгүй зүйлийг ТААМАГЛАЖ, зохиож, нэмж хариулахгүй. Хэрэв мэдэхгүй бол "Тухайн мэдээлэл надад байхгүй байна. Менежертэй холбогдоно уу" гэж хэл.`
   }
 
   let messages = [...history]
 
-  // Vision fallback for Grok: analyze image with vision model first
-  if (imageUrl && !textModelConfig.supportsVision) {
+  // Resolve image: prefer pre-downloaded buffer (avoids Meta CDN access issues)
+  const imageData: Buffer | string | undefined = imageBuffer || imageUrl
+
+  // Vision fallback: analyze image first, then send description to text model
+  if (imageData && !textModelConfig.supportsVision) {
     const visionModel = getVisionProvider(tenant)
     const visionResult = await generateText({
       model: visionModel,
       messages: [
         {
           role: 'user',
-          content: [{ type: 'image', image: imageUrl }, { type: 'text', text: 'Энэ зургийг тайлбарла.' }],
+          content: [{ type: 'image', image: imageData as any }, { type: 'text', text: 'Энэ зургийг тайлбарла.' }],
         },
       ],
     })
@@ -92,15 +96,14 @@ export async function generateReply(opts: GenerateReplyOptions): Promise<string>
         content: `${lastMsg.content}\n\n[Зургийн тайлбар: ${visionResult.text}]`,
       }
     }
-  } else if (imageUrl && textModelConfig.supportsVision) {
-    // Replace last user text with multimodal content
+  } else if (imageData && textModelConfig.supportsVision) {
     const lastIdx = messages.length - 1
     const lastMsg = messages[lastIdx]
     if (lastMsg?.role === 'user') {
       messages[lastIdx] = {
         role: 'user',
         content: [
-          { type: 'image', image: imageUrl },
+          { type: 'image', image: imageData as any },
           { type: 'text', text: typeof lastMsg.content === 'string' ? lastMsg.content : '' },
         ],
       }
