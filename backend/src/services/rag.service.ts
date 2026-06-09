@@ -2,15 +2,14 @@ import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
 import fetch from 'node-fetch'
 import pino from 'pino'
-// pdf-parse uses CommonJS module.exports — use require to avoid ESM interop issues
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = require('pdf-parse')
 
 const logger = pino()
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 const GEMINI_UPLOAD_BASE = 'https://generativelanguage.googleapis.com/upload/v1beta'
 
-// Max characters to store per file — ~80K chars ≈ 20K tokens, safe for all models
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = require('pdf-parse')
+
 const MAX_TEXT_CHARS = 80_000
 
 async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string | null> {
@@ -22,6 +21,76 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<
     logger.warn({ err }, 'PDF text extraction failed')
     return null
   }
+}
+
+async function queryGeminiWithText(apiKey: string, combinedText: string, question: string): Promise<string> {
+  const res = await fetch(
+    `${GEMINI_BASE}/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `Дараах баримт бичгүүд:\n\n${combinedText}\n\nДээрх баримт бичгүүд дээр үндэслэн дараах асуултад нарийвчлан, дэлгэрэнгүй хариул: ${question}`,
+          }],
+        }],
+      }),
+    }
+  )
+  if (!res.ok) {
+    const err = await res.text()
+    logger.warn({ err }, 'RAG text query failed')
+    return combinedText
+  }
+  const data = (await res.json()) as {
+    candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
+  }
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || combinedText
+}
+
+async function queryGeminiWithFileIds(
+  apiKey: string,
+  files: Array<{ mimeType: string; geminiFileId: string | null; fileName: string }>,
+  question: string
+): Promise<string> {
+  const fileParts = files
+    .filter((f): f is typeof f & { geminiFileId: string } => f.geminiFileId !== null)
+    .map((f) => ({
+      fileData: {
+        mimeType: f.mimeType,
+        fileUri: `https://generativelanguage.googleapis.com/v1beta/${f.geminiFileId}`,
+      },
+    }))
+
+  if (fileParts.length === 0) return ''
+
+  const res = await fetch(
+    `${GEMINI_BASE}/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            ...fileParts,
+            { text: `Дараах асуултад дэлгэрэнгүй хариул: ${question}` },
+          ],
+        }],
+      }),
+    }
+  )
+
+  if (!res.ok) {
+    const err = await res.text()
+    logger.warn({ err }, 'RAG File API query failed (file may be expired)')
+    return ''
+  }
+
+  const data = (await res.json()) as {
+    candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
+  }
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
 }
 
 export async function uploadFileToGemini(
@@ -75,92 +144,60 @@ export async function uploadFileToGemini(
   const uploaded = (await uploadRes.json()) as { file: { name: string } }
   const geminiFileId = uploaded.file.name
 
-  // Extract text from PDF for local storage (avoids 48h Gemini File API TTL)
+  // Extract text locally so we don't depend on 48h Gemini File TTL
   const textContent = await extractTextFromBuffer(fileBuffer, mimeType)
   if (textContent) {
-    logger.info({ tenantId, fileName, chars: textContent.length }, 'PDF text extracted for local RAG')
-  } else {
-    logger.warn({ tenantId, fileName, mimeType }, 'Could not extract text from file — RAG will be limited')
+    logger.info({ tenantId, fileName, chars: textContent.length }, 'PDF text extracted')
   }
 
   await prisma.tenantKnowledgeFile.create({
-    data: {
-      tenantId,
-      fileName,
-      fileSize,
-      mimeType,
-      geminiFileId,
-      textContent,
-    },
+    data: { tenantId, fileName, fileSize, mimeType, geminiFileId, textContent },
   })
 
   return geminiFileId
 }
 
-type KnowledgeFileRow = { fileName: string; textContent: string | null }
+type KnowledgeFileRow = {
+  fileName: string
+  textContent: string | null
+  geminiFileId: string | null
+  mimeType: string
+}
 
 export async function queryKnowledgeBase(
   tenantId: string,
   question: string
 ): Promise<string> {
+  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
+  if (!keys?.geminiKey) return ''
+  const apiKey = decrypt(keys.geminiKey)
+
   const files = (await prisma.tenantKnowledgeFile.findMany({
     where: { tenantId },
-    select: { fileName: true, textContent: true },
+    select: { fileName: true, textContent: true, geminiFileId: true, mimeType: true },
   })) as KnowledgeFileRow[]
 
   if (files.length === 0) return ''
 
+  // Prefer locally stored text content (no TTL issue)
   const filesWithText = files.filter((f) => f.textContent)
-  if (filesWithText.length === 0) {
-    logger.warn({ tenantId }, 'Knowledge files exist but have no extracted text — user should re-upload')
-    return ''
+  if (filesWithText.length > 0) {
+    const combinedText = filesWithText
+      .map((f) => `=== ${f.fileName} ===\n${f.textContent}`)
+      .join('\n\n')
+    logger.info({ tenantId, fileCount: filesWithText.length }, 'RAG using stored text content')
+    return queryGeminiWithText(apiKey, combinedText, question)
   }
 
-  // Build context from stored text — no Gemini File API TTL issue
-  const combinedText = filesWithText
-    .map((f) => `=== ${f.fileName} ===\n${f.textContent}`)
-    .join('\n\n')
-
-  // Use Gemini to extract a focused answer from the document text
-  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
-  if (!keys?.geminiKey) {
-    // No Gemini key: return raw text so the main AI can use it directly
-    return combinedText
-  }
-  const apiKey = decrypt(keys.geminiKey)
-
-  const requestBody = {
-    contents: [
-      {
-        parts: [
-          {
-            text: `Дараах баримт бичгүүд:\n\n${combinedText}\n\nДээрх баримт бичгүүд дээр үндэслэн дараах асуултад нарийвчлан, дэлгэрэнгүй хариул: ${question}`,
-          },
-        ],
-      },
-    ],
+  // Fallback: use Gemini File API (for files uploaded before text extraction was added)
+  // Note: these files expire after 48h
+  const filesWithGemini = files.filter((f) => f.geminiFileId)
+  if (filesWithGemini.length > 0) {
+    logger.info({ tenantId }, 'RAG falling back to Gemini File API (re-upload PDF to use local text extraction)')
+    return queryGeminiWithFileIds(apiKey, filesWithGemini, question)
   }
 
-  const res = await fetch(
-    `${GEMINI_BASE}/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    }
-  )
-
-  if (!res.ok) {
-    const err = await res.text()
-    logger.warn({ err, tenantId }, 'RAG Gemini query failed — using raw text as context fallback')
-    return combinedText
-  }
-
-  const data = (await res.json()) as {
-    candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
-  }
-
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || combinedText
+  return ''
 }
 
 export async function deleteFileFromGemini(

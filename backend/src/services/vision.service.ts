@@ -5,46 +5,82 @@ import pino from 'pino'
 
 const logger = pino()
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+const GEMINI_UPLOAD_BASE = 'https://generativelanguage.googleapis.com/upload/v1beta'
 
-function normalizeMimeType(rawType: string): string {
-  if (rawType.includes('ogg')) return 'audio/ogg'
-  if (rawType.includes('mp4') || rawType.includes('m4a')) return 'audio/mp4'
-  if (rawType.includes('aac')) return 'audio/aac'
-  if (rawType.includes('wav')) return 'audio/wav'
-  if (rawType.includes('webm')) return 'audio/webm'
-  if (rawType.startsWith('audio/')) return rawType.split(';')[0].trim()
-  if (rawType.includes('jpeg') || rawType.includes('jpg')) return 'image/jpeg'
-  if (rawType.includes('png')) return 'image/png'
-  if (rawType.includes('webp')) return 'image/webp'
-  if (rawType.startsWith('image/')) return rawType.split(';')[0].trim()
-  return rawType
+async function uploadToGeminiFileAPI(
+  apiKey: string,
+  buffer: Buffer,
+  mimeType: string,
+  displayName: string
+): Promise<string> {
+  const initRes = await fetch(`${GEMINI_UPLOAD_BASE}/files?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'X-Goog-Upload-Protocol': 'resumable',
+      'X-Goog-Upload-Command': 'start',
+      'X-Goog-Upload-Header-Content-Length': String(buffer.length),
+      'X-Goog-Upload-Header-Content-Type': mimeType,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ file: { displayName } }),
+  })
+  if (!initRes.ok) throw new Error(`File upload init failed: ${await initRes.text()}`)
+
+  const uploadUrl = initRes.headers.get('x-goog-upload-url')
+  if (!uploadUrl) throw new Error('No upload URL returned')
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Length': String(buffer.length),
+      'X-Goog-Upload-Offset': '0',
+      'X-Goog-Upload-Command': 'upload, finalize',
+    },
+    body: buffer,
+  })
+  if (!uploadRes.ok) throw new Error(`File upload failed: ${await uploadRes.text()}`)
+
+  const uploaded = (await uploadRes.json()) as { file: { name: string } }
+  return uploaded.file.name // e.g. "files/abc123"
 }
 
-async function callGemini(
+async function queryGeminiWithFile(
   apiKey: string,
-  parts: object[]
+  fileId: string,
+  mimeType: string,
+  prompt: string
 ): Promise<string> {
   const res = await fetch(
     `${GEMINI_BASE}/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts }] }),
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { fileData: { mimeType, fileUri: `${GEMINI_BASE}/${fileId}` } },
+            { text: prompt },
+          ],
+        }],
+      }),
     }
   )
-
   if (!res.ok) {
     const err = await res.text()
-    throw new Error(`Gemini API error: ${err}`)
+    throw new Error(`Gemini generate failed: ${err}`)
   }
-
   const data = (await res.json()) as {
     candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
   }
-
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) throw new Error('Gemini returned empty response')
+  if (!text) throw new Error('Empty response from Gemini')
   return text
+}
+
+async function getGeminiKey(tenantId: string): Promise<string> {
+  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
+  if (!keys?.geminiKey) throw new Error('Gemini API key not configured for this tenant')
+  return decrypt(keys.geminiKey)
 }
 
 export async function analyzeImage(
@@ -53,37 +89,50 @@ export async function analyzeImage(
   mimeType: string,
   userQuestion: string
 ): Promise<string> {
-  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
-  if (!keys?.geminiKey) throw new Error('Gemini API key required for image analysis')
-  const apiKey = decrypt(keys.geminiKey)
+  const apiKey = await getGeminiKey(tenantId)
+  const cleanMime = mimeType.split(';')[0].trim() || 'image/jpeg'
 
-  const normalizedMime = normalizeMimeType(mimeType) || 'image/jpeg'
-  const base64 = imageBuffer.toString('base64')
+  logger.info({ tenantId, mimeType: cleanMime, sizeKb: Math.round(imageBuffer.length / 1024) }, 'Uploading image to Gemini')
 
-  logger.info({ tenantId, mimeType: normalizedMime, sizeKb: Math.round(imageBuffer.length / 1024) }, 'Analyzing image with Gemini')
+  const fileId = await uploadToGeminiFileAPI(apiKey, imageBuffer, cleanMime, 'image')
+  const prompt = `Энэ зургийг харж дэлгэрэнгүй тайлбарла. Харагдаж байгаа бүх объект, тоног төхөөрөмж, зүйлсийг нэрлэ. Хэрэглэгч дараах зүйлийг асуусан байна: "${userQuestion}"`
 
-  return callGemini(apiKey, [
-    { inlineData: { mimeType: normalizedMime, data: base64 } },
-    { text: `Энэ зургийг харж дэлгэрэнгүй тайлбарла. Харагдаж байгаа бүх зүйлийг дурдаарай. Хэрэглэгч дараах зүйлийг асуусан байна: "${userQuestion}"` },
-  ])
+  try {
+    const result = await queryGeminiWithFile(apiKey, fileId, cleanMime, prompt)
+    logger.info({ tenantId }, 'Image analyzed successfully')
+    return result
+  } finally {
+    // Clean up uploaded file (fire and forget)
+    fetch(`${GEMINI_BASE}/${fileId}?key=${apiKey}`, { method: 'DELETE' }).catch(() => {})
+  }
 }
 
 export async function transcribeAudioWithGemini(
   tenantId: string,
   audioBuffer: Buffer,
-  mimeType: string
+  rawMimeType: string
 ): Promise<string> {
-  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
-  if (!keys?.geminiKey) throw new Error('Gemini API key required for audio transcription')
-  const apiKey = decrypt(keys.geminiKey)
+  const apiKey = await getGeminiKey(tenantId)
 
-  const normalizedMime = normalizeMimeType(mimeType) || 'audio/mpeg'
-  const base64 = audioBuffer.toString('base64')
+  // Normalize MIME type for Gemini support
+  let mimeType: string
+  if (rawMimeType.includes('ogg')) mimeType = 'audio/ogg'
+  else if (rawMimeType.includes('m4a') || (rawMimeType.includes('mp4') && rawMimeType.includes('audio'))) mimeType = 'audio/mp4'
+  else if (rawMimeType.includes('aac')) mimeType = 'audio/aac'
+  else if (rawMimeType.includes('wav')) mimeType = 'audio/wav'
+  else if (rawMimeType.includes('webm')) mimeType = 'audio/webm'
+  else mimeType = 'audio/mpeg'
 
-  logger.info({ tenantId, mimeType: normalizedMime, sizeKb: Math.round(audioBuffer.length / 1024) }, 'Transcribing audio with Gemini')
+  logger.info({ tenantId, mimeType, sizeKb: Math.round(audioBuffer.length / 1024) }, 'Uploading audio to Gemini')
 
-  return callGemini(apiKey, [
-    { inlineData: { mimeType: normalizedMime, data: base64 } },
-    { text: 'Энэ аудио дахь яриаг яг байгаагаар нь бичгээр гарга. Зөвхөн хэлсэн үгийг бичнэ, тайлбар нэмэхгүй.' },
-  ])
+  const fileId = await uploadToGeminiFileAPI(apiKey, audioBuffer, mimeType, 'voice_message')
+  const prompt = 'Энэ аудио дахь яриаг яг байгаагаар нь бичгээр гарга. Зөвхөн хэлсэн үгийг бичнэ, тайлбар нэмэхгүй.'
+
+  try {
+    const result = await queryGeminiWithFile(apiKey, fileId, mimeType, prompt)
+    logger.info({ tenantId }, 'Audio transcribed successfully')
+    return result
+  } finally {
+    fetch(`${GEMINI_BASE}/${fileId}?key=${apiKey}`, { method: 'DELETE' }).catch(() => {})
+  }
 }
