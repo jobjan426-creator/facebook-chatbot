@@ -3,6 +3,23 @@ import { TenantChannel } from '@prisma/client'
 
 const GRAPH_API = 'https://graph.facebook.com/v22.0'
 
+export async function sendTypingAction(
+  channel: TenantChannel,
+  recipientId: string,
+  action: 'typing_on' | 'typing_off'
+): Promise<void> {
+  const accessToken = decrypt(channel.accessToken)
+  await fetch(`${GRAPH_API}/me/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      access_token: accessToken,
+      recipient: { id: recipientId },
+      sender_action: action,
+    }),
+  }).catch(() => {})
+}
+
 export async function sendMessage(
   channel: TenantChannel,
   recipientId: string,

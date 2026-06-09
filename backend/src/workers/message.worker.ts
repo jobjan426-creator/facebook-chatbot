@@ -6,7 +6,7 @@ import { prisma } from '../lib/prisma.js'
 import { generateReply } from '../services/ai.service.js'
 import { transcribeAudio } from '../services/voice.service.js'
 import { queryKnowledgeBase } from '../services/rag.service.js'
-import { sendMessage } from '../services/meta.service.js'
+import { sendMessage, sendTypingAction } from '../services/meta.service.js'
 import { emitToTenant } from '../socket/index.js'
 import { flushBuffer, BufferedMessage } from '../services/buffer.service.js'
 import { ConversationStatus } from '@prisma/client'
@@ -60,6 +60,9 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
                   logger.warn({ channelId }, 'Channel not found, skipping')
                   return
         }
+
+  // Show typing indicator while AI is processing
+  await sendTypingAction(channel, senderId, 'typing_on').catch(() => {})
 
   const processedTexts: string[] = []
           let imageUrl: string | undefined
@@ -129,6 +132,7 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
   }
 
   try {
+            await sendTypingAction(channel, senderId, 'typing_off').catch(() => {})
             await sendMessage(channel, senderId, replyText)
             logger.info({ conversationId, senderId }, 'AI reply sent successfully')
   } catch (err) {

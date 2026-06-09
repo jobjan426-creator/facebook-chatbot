@@ -89,7 +89,7 @@ export async function queryKnowledgeBase(
 
   // Build contents with all uploaded files
   const fileParts = files.map((f: { mimeType: string; geminiFileId: string | null }) => ({
-    file_data: { mime_type: f.mimeType, file_uri: `https://generativelanguage.googleapis.com/v1beta/${f.geminiFileId}` },
+    fileData: { mimeType: f.mimeType, fileUri: `https://generativelanguage.googleapis.com/v1beta/${f.geminiFileId}` },
   }))
 
   const requestBody = {
@@ -97,7 +97,7 @@ export async function queryKnowledgeBase(
       {
         parts: [
           ...fileParts,
-          { text: `Based on the documents above, answer this question concisely: ${question}` },
+          { text: `Based on the documents above, answer this question accurately and in detail: ${question}` },
         ],
       },
     ],
