@@ -5,6 +5,7 @@ const bullConnection = { url: process.env.REDIS_URL || 'redis://localhost:6379' 
 import { prisma } from '../lib/prisma.js'
 import { generateReply } from '../services/ai.service.js'
 import { transcribeAudio } from '../services/voice.service.js'
+import { analyzeImage, transcribeAudioWithGemini } from '../services/vision.service.js'
 import { queryKnowledgeBase } from '../services/rag.service.js'
 import { sendMessage, sendTypingAction } from '../services/meta.service.js'
 import { emitToTenant } from '../socket/index.js'
@@ -66,37 +67,50 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
   await sendTypingAction(channel, senderId, 'typing_on').catch(() => {})
 
   const processedTexts: string[] = []
-          let imageUrl: string | undefined
-          let imageBuffer: Buffer | undefined
 
   for (const msg of messages as BufferedMessage[]) {
             if (msg.mediaType === 'audio' && msg.mediaUrl) {
+                        // 1. Try Whisper (OpenAI) — best quality
+                        // 2. Try Gemini inline audio — fallback if no OpenAI key
                         try {
                                       const transcript = await transcribeAudio(msg.mediaUrl, tenantId, conversationId)
                                       processedTexts.push(`[Дуут мессеж]: ${transcript}`)
-                        } catch (err) {
-                                      logger.error({ err }, 'Voice transcription failed')
-                                      processedTexts.push(msg.text || '[Дуут мессеж]')
+                        } catch (whisperErr) {
+                                      logger.warn({ whisperErr }, 'Whisper failed — trying Gemini audio transcription')
+                                      try {
+                                                    const audioRes = await fetch(msg.mediaUrl)
+                                                    if (!audioRes.ok) throw new Error(`Audio download failed: ${audioRes.status}`)
+                                                    const audioBuffer = await audioRes.buffer()
+                                                    const mimeType = audioRes.headers.get('content-type') || 'audio/mpeg'
+                                                    const transcript = await transcribeAudioWithGemini(tenantId, audioBuffer, mimeType)
+                                                    processedTexts.push(`[Дуут мессеж]: ${transcript}`)
+                                      } catch (geminiErr) {
+                                                    logger.error({ whisperErr, geminiErr }, 'Both voice transcription methods failed')
+                                                    processedTexts.push('[Дуут мессеж — таниж чадсангүй, текстээр бичнэ үү]')
+                                      }
                         }
             } else if (msg.mediaType === 'image' && msg.mediaUrl) {
-                        imageUrl = msg.mediaUrl
-                        // Download image on our server so AI models can access it (Meta CDN may block external requests)
+                        // Analyze image with Gemini inline data (reliable, no CDN access issues)
                         try {
                                       const imgRes = await fetch(msg.mediaUrl)
-                                      if (imgRes.ok) {
-                                                    imageBuffer = await imgRes.buffer()
-                                      }
-                        } catch {
-                                      logger.warn({ mediaUrl: msg.mediaUrl }, 'Failed to download image — will pass URL directly')
+                                      if (!imgRes.ok) throw new Error(`Image download failed: ${imgRes.status}`)
+                                      const imgBuffer = await imgRes.buffer()
+                                      const mimeType = imgRes.headers.get('content-type') || 'image/jpeg'
+                                      const userQ = msg.text || 'Энэ зураг юу байна?'
+                                      const description = await analyzeImage(tenantId, imgBuffer, mimeType, userQ)
+                                      processedTexts.push(`[Хэрэглэгч зураг илгээсэн. Зургийн агуулга: ${description}]`)
+                                      if (msg.text) processedTexts.push(msg.text)
+                        } catch (err) {
+                                      logger.error({ err }, 'Image analysis failed')
+                                      processedTexts.push(msg.text || '[Зураг — боловсруулж чадсангүй]')
                         }
-                        processedTexts.push(msg.text || '[Зураг]')
             } else {
                         if (msg.text) processedTexts.push(msg.text)
             }
   }
 
   const combinedText = processedTexts.join('\n')
-        if (!combinedText && !imageUrl) {
+        if (!combinedText) {
                   logger.warn({ conversationId }, 'No text or image to process, skipping')
                   return
         }
@@ -122,8 +136,6 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
                               tenant,
                               history: coreMessages,
                               ragContext,
-                              imageUrl,
-                              imageBuffer,
                               conversationId,
                   })
         } catch (err) {
