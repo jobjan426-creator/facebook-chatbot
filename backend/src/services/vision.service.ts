@@ -40,8 +40,26 @@ async function uploadToGeminiFileAPI(
   })
   if (!uploadRes.ok) throw new Error(`File upload failed: ${await uploadRes.text()}`)
 
-  const uploaded = (await uploadRes.json()) as { file: { name: string } }
-  return uploaded.file.name // e.g. "files/abc123"
+  const uploaded = (await uploadRes.json()) as { file: { name: string; state?: string } }
+  const fileId = uploaded.file.name
+
+  // Wait for ACTIVE state (small files are usually instant, but audio/images may take a moment)
+  if (uploaded.file.state === 'PROCESSING') {
+    await waitForFileActive(apiKey, fileId)
+  }
+
+  return fileId
+}
+
+async function waitForFileActive(apiKey: string, fileId: string): Promise<void> {
+  for (let i = 0; i < 10; i++) {
+    await new Promise((r) => setTimeout(r, 1000))
+    const res = await fetch(`${GEMINI_BASE}/${fileId}?key=${apiKey}`)
+    if (!res.ok) return
+    const data = (await res.json()) as { state?: string }
+    if (data.state === 'ACTIVE') return
+    if (data.state === 'FAILED') throw new Error('Gemini file processing failed')
+  }
 }
 
 async function queryGeminiWithFile(
