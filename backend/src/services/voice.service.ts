@@ -5,7 +5,7 @@ import FormData from 'form-data'
 import fetch from 'node-fetch'
 
 export async function transcribeAudio(
-  audioUrl: string,h
+  audioUrl: string,
   tenantId: string,
   conversationId?: string
 ): Promise<string> {

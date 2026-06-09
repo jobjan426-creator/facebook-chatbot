@@ -6,6 +6,7 @@ import pino from 'pino'
 
 const logger = pino()
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+const GEMINI_UPLOAD_BASE = 'https://generativelanguage.googleapis.com/upload/v1beta'
 
 export async function uploadFileToGemini(
   tenantId: string,
@@ -18,18 +19,37 @@ export async function uploadFileToGemini(
   if (!keys?.geminiKey) throw new Error('Gemini API key required for knowledge base')
   const apiKey = decrypt(keys.geminiKey)
 
-  // Upload file to Gemini File API
-  const form = new FormData()
-  form.append('file', fileBuffer, { filename: fileName, contentType: mimeType })
+  // Step 1: Start resumable upload session
+  const initRes = await fetch(`${GEMINI_UPLOAD_BASE}/files?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'X-Goog-Upload-Protocol': 'resumable',
+      'X-Goog-Upload-Command': 'start',
+      'X-Goog-Upload-Header-Content-Length': String(fileSize),
+      'X-Goog-Upload-Header-Content-Type': mimeType,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ file: { displayName: fileName } }),
+  })
 
-  const uploadRes = await fetch(
-    `${GEMINI_BASE}/files?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: form.getHeaders(),
-      body: form,
-    }
-  )
+  if (!initRes.ok) {
+    const err = await initRes.text()
+    throw new Error(`Gemini upload init failed: ${err}`)
+  }
+
+  const uploadUrl = initRes.headers.get('x-goog-upload-url')
+  if (!uploadUrl) throw new Error('Gemini did not return upload URL')
+
+  // Step 2: Upload file content
+  const uploadRes = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Length': String(fileSize),
+      'X-Goog-Upload-Offset': '0',
+      'X-Goog-Upload-Command': 'upload, finalize',
+    },
+    body: fileBuffer,
+  })
 
   if (!uploadRes.ok) {
     const err = await uploadRes.text()

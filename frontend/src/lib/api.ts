@@ -112,16 +112,21 @@ export const api = {
     return request<KnowledgeFile[]>(`${BASE}/knowledge${qs}`)
   },
 
-  uploadKnowledgeFile: (file: File, tenantId?: string) => {
+  uploadKnowledgeFile: async (file: File, tenantId?: string) => {
     const token = getToken()
     const form = new FormData()
     form.append('file', file)
     const qs = tenantId ? `?tenantId=${tenantId}` : ''
-    return fetch(`${BASE}/knowledge/upload${qs}`, {
+    const r = await fetch(`${BASE}/knowledge/upload${qs}`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
-    }).then((r) => r.json())
+    })
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({ error: r.statusText }))
+      throw new Error((body as { error: string }).error || r.statusText)
+    }
+    return r.json()
   },
 
   deleteKnowledgeFile: (id: string, tenantId?: string) => {
