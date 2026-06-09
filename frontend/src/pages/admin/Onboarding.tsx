@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { api, TenantSettings, ApiKeys } from '@/lib/api'
+import { api, TenantSettings, ApiKeys, KnowledgeFile } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { formatDate, formatFileSize } from '@/lib/utils'
 
 type FbMode = 'manual' | 'oauth'
 
@@ -29,6 +30,13 @@ export default function Onboarding() {
   const [connectingFb, setConnectingFb] = useState(false)
   const [fbMsg, setFbMsg] = useState('')
 
+  // Knowledge base
+  const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   // Activate
   const [activating, setActivating] = useState(false)
   const [activateMsg, setActivateMsg] = useState('')
@@ -41,10 +49,12 @@ export default function Onboarding() {
       api.getSettings(tenantId),
       api.getApiKeys(tenantId),
       api.getChannels(tenantId),
-    ]).then(([s, k, c]) => {
+      api.getKnowledgeFiles(tenantId),
+    ]).then(([s, k, c, kf]) => {
       setSettings(s)
       setApiKeys(k)
       setChannels(c)
+      setKnowledgeFiles(kf)
       setPersona(s.aiPersona || '')
     }).catch((err) => {
       setLoadError(err instanceof Error ? err.message : 'Өгөгдөл ачааллахад алдаа гарлаа')
@@ -145,6 +155,27 @@ export default function Onboarding() {
       setConnectingFb(false)
       setTimeout(() => setFbMsg(''), 5000)
     }
+  }
+
+  async function handleFileUpload(file: File) {
+    if (!tenantId) return
+    setUploading(true)
+    setUploadError('')
+    try {
+      await api.uploadKnowledgeFile(file, tenantId)
+      const fresh = await api.getKnowledgeFiles(tenantId)
+      setKnowledgeFiles(fresh)
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload амжилтгүй')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleFileDelete(id: string) {
+    if (!tenantId || !confirm('Файлыг устгах уу?')) return
+    await api.deleteKnowledgeFile(id, tenantId)
+    setKnowledgeFiles((f) => f.filter((x) => x.id !== id))
   }
 
   async function handleActivate() {
@@ -291,6 +322,48 @@ export default function Onboarding() {
                 </Button>
               </div>
             </div>
+          </div>
+        </SectionCard>
+
+        {/* ── Knowledge Base ── */}
+        <SectionCard step="📄" title="Мэдлэгийн сан" done={knowledgeFiles.length > 0} description="PDF, DOCX, TXT файл оруулна уу. AI хариулт үүсгэхэд ашиглана" optional>
+          <div className="space-y-4">
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFileUpload(f) }}
+              onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${dragOver ? 'border-blue-400 bg-blue-50' : 'border-zinc-200 hover:border-zinc-400'}`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.json"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); e.target.value = '' }}
+              />
+              <p className="text-xl mb-1">📄</p>
+              <p className="text-sm font-medium text-zinc-700">
+                {uploading ? 'Оруулж байна...' : 'Файл чирж оруулах эсвэл дарж сонгоно уу'}
+              </p>
+              <p className="text-xs text-zinc-400 mt-1">PDF, DOCX, TXT — хамгийн их 50MB</p>
+            </div>
+
+            {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}
+
+            {knowledgeFiles.length > 0 && (
+              <div className="space-y-2">
+                {knowledgeFiles.map((f) => (
+                  <div key={f.id} className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-zinc-900">{f.fileName}</p>
+                      <p className="text-xs text-zinc-400">{formatFileSize(f.fileSize)} · {formatDate(f.uploadedAt)}</p>
+                    </div>
+                    <Button size="sm" variant="destructive" onClick={() => handleFileDelete(f.id)}>Устгах</Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </SectionCard>
 
@@ -467,7 +540,7 @@ export default function Onboarding() {
 function SectionCard({
   step, title, done, description, optional, children,
 }: {
-  step: number
+  step: number | string
   title: string
   done: boolean
   description: string
