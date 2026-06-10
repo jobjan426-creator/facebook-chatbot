@@ -1,5 +1,3 @@
-export const GEMINI_MODEL_ID = 'gemini-3-flash'
-
 export const MODEL_PRICING = {
     text: {
           'gpt-4o': {
@@ -15,8 +13,8 @@ export const MODEL_PRICING = {
           },
           'gemini-3-flash': {
                   provider: 'google' as const,
-                  modelId: 'gemini-3-flash',
-                  displayName: 'Gemini 1.5 Flash',
+                  modelId: 'gemini-3.5-flash',
+                  displayName: 'Gemini 3.5 Flash',
                   inputPer1M: 0.075,
                   outputPer1M: 0.30,
                   avgCostPerMessage: 0.0005,
@@ -48,8 +46,8 @@ export const MODEL_PRICING = {
           },
           'gemini-3-flash': {
                   provider: 'google' as const,
-                  modelId: 'gemini-3-flash',
-                  displayName: 'Gemini 1.5 Flash Vision',
+                  modelId: 'gemini-3.5-flash',
+                  displayName: 'Gemini 3.5 Flash Vision',
                   inputPer1M: 0.075,
                   outputPer1M: 0.30,
                   avgCostPerImage: 0.001,
@@ -66,6 +64,8 @@ export const MODEL_PRICING = {
           },
     },
 } as const
+
+export const GEMINI_MODEL_ID = MODEL_PRICING.vision['gemini-3-flash'].modelId
 
 export type TextModelId = keyof typeof MODEL_PRICING.text
 export type VisionModelId = keyof typeof MODEL_PRICING.vision

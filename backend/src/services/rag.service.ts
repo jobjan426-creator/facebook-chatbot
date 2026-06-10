@@ -1,6 +1,7 @@
 import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
 import { GEMINI_MODEL_ID } from '../config/model-pricing.js'
+import { PDFParse } from 'pdf-parse'
 import fetch from 'node-fetch'
 import pino from 'pino'
 
@@ -8,16 +9,15 @@ const logger = pino()
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 const GEMINI_UPLOAD_BASE = 'https://generativelanguage.googleapis.com/upload/v1beta'
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = require('pdf-parse')
-
 const MAX_TEXT_CHARS = 80_000
 
 async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string | null> {
   if (mimeType !== 'application/pdf') return null
   try {
-    const data = await pdfParse(buffer)
-    return data.text.slice(0, MAX_TEXT_CHARS)
+    const parser = new PDFParse({ data: buffer })
+    const result = await parser.getText()
+    await parser.destroy()
+    return result.text.slice(0, MAX_TEXT_CHARS)
   } catch (err) {
     logger.warn({ err }, 'PDF text extraction failed')
     return null

@@ -17,8 +17,16 @@ function getDecryptedKeys(keys: TenantApiKeys | null) {
   }
 }
 
+function resolveTextModelId(tenant: TenantWithKeys): TextModelId {
+  return (MODEL_PRICING.text[tenant.textModel as TextModelId] ? tenant.textModel : 'gemini-3-flash') as TextModelId
+}
+
+function resolveVisionModelId(tenant: TenantWithKeys): VisionModelId {
+  return (MODEL_PRICING.vision[tenant.visionModel as VisionModelId] ? tenant.visionModel : 'gemini-3-flash') as VisionModelId
+}
+
 function getTextProvider(tenant: TenantWithKeys) {
-  const modelId = tenant.textModel as TextModelId
+  const modelId = resolveTextModelId(tenant)
   const pricing = (MODEL_PRICING.text as any)[modelId]
   const keys = getDecryptedKeys(tenant.apiKeys)
 
@@ -34,7 +42,7 @@ function getTextProvider(tenant: TenantWithKeys) {
 }
 
 function getVisionProvider(tenant: TenantWithKeys) {
-  const modelId = tenant.visionModel as VisionModelId
+  const modelId = resolveVisionModelId(tenant)
   const pricing = (MODEL_PRICING.vision as any)[modelId]
   const keys = getDecryptedKeys(tenant.apiKeys)
 
@@ -61,9 +69,7 @@ export interface GenerateReplyOptions {
 export async function generateReply(opts: GenerateReplyOptions): Promise<string> {
   const { tenant, history, ragContext, imageUrl, imageBuffer, conversationId } = opts
 
-  const textModelId = (MODEL_PRICING.text[tenant.textModel as TextModelId]
-    ? tenant.textModel
-    : 'gemini-3-flash') as TextModelId
+  const textModelId = resolveTextModelId(tenant)
   const textModelConfig = MODEL_PRICING.text[textModelId]
 
   let systemPrompt = tenant.aiPersona
