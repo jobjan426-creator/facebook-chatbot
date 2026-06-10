@@ -24,6 +24,30 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<
   }
 }
 
+const GEMINI_FALLBACK_MODEL_ID = 'gemini-2.0-flash'
+
+async function callGemini(
+  apiKey: string,
+  modelId: string,
+  body: string
+): Promise<{ ok: true; text: string } | { ok: false; status: number; err: string }> {
+  const res = await fetch(
+    `${GEMINI_BASE}/models/${modelId}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    }
+  )
+  if (res.ok) {
+    const data = (await res.json()) as {
+      candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
+    }
+    return { ok: true, text: data.candidates?.[0]?.content?.parts?.[0]?.text || '' }
+  }
+  return { ok: false, status: res.status, err: await res.text() }
+}
+
 async function queryGeminiWithText(apiKey: string, combinedText: string, question: string): Promise<string> {
   const body = JSON.stringify({
     contents: [{
@@ -34,32 +58,28 @@ async function queryGeminiWithText(apiKey: string, combinedText: string, questio
   })
 
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const res = await fetch(
-      `${GEMINI_BASE}/models/${GEMINI_MODEL_ID}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      }
-    )
-    if (res.ok) {
-      const data = (await res.json()) as {
-        candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
-      }
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || combinedText
-    }
+    const result = await callGemini(apiKey, GEMINI_MODEL_ID, body)
+    if (result.ok) return result.text
 
-    const err = await res.text()
-    const retriable = res.status === 503 || res.status === 429
+    const retriable = result.status === 503 || result.status === 429
     if (!retriable || attempt === 3) {
-      logger.warn({ err, attempt }, 'RAG text query failed')
-      return combinedText
+      logger.warn({ err: result.err, attempt }, 'RAG text query failed')
+      break
     }
-    logger.warn({ err, attempt }, 'RAG text query failed, retrying')
+    logger.warn({ err: result.err, attempt }, 'RAG text query failed, retrying')
     await new Promise((r) => setTimeout(r, attempt * 1000))
   }
 
-  return combinedText
+  // Last resort: try a different Gemini model in case the primary one is overloaded.
+  // Never fall back to the raw combinedText here — for some PDFs the locally
+  // extracted text decodes into the wrong script/language (e.g. due to custom
+  // font encodings), and dumping that into the prompt causes the AI to reply
+  // in that wrong language.
+  const fallback = await callGemini(apiKey, GEMINI_FALLBACK_MODEL_ID, body)
+  if (fallback.ok) return fallback.text
+
+  logger.warn({ err: fallback.err }, 'RAG fallback model also failed')
+  return ''
 }
 
 async function queryGeminiWithFileIds(
