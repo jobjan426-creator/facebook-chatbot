@@ -1,6 +1,6 @@
 import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
-import { calcSttCost } from '../config/model-pricing.js'
+import { calcSttCost, GEMINI_MODEL_ID } from '../config/model-pricing.js'
 import FormData from 'form-data'
 import fetch from 'node-fetch'
 import pino from 'pino'
@@ -84,7 +84,7 @@ async function transcribeWithGemini(
   }
 
   const res = await fetch(
-    `${GEMINI_BASE}/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `${GEMINI_BASE}/models/${GEMINI_MODEL_ID}:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -110,7 +110,7 @@ async function transcribeWithGemini(
       tenantId,
       category: 'stt',
       provider: 'google',
-      modelId: 'gemini-1.5-flash',
+      modelId: GEMINI_MODEL_ID,
       durationSeconds,
       estimatedCostUsd: 0,
       conversationId,

@@ -1,5 +1,6 @@
 import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
+import { GEMINI_MODEL_ID } from '../config/model-pricing.js'
 import fetch from 'node-fetch'
 import pino from 'pino'
 
@@ -69,7 +70,7 @@ async function queryGeminiWithFile(
   prompt: string
 ): Promise<string> {
   const res = await fetch(
-    `${GEMINI_BASE}/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `${GEMINI_BASE}/models/${GEMINI_MODEL_ID}:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -1,3 +1,5 @@
+export const GEMINI_MODEL_ID = 'gemini-3-flash'
+
 export const MODEL_PRICING = {
     text: {
           'gpt-4o': {
