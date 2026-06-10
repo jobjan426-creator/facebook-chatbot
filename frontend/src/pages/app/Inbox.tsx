@@ -25,6 +25,7 @@ export default function Inbox() {
   const { user } = useAuthStore()
   const [text, setText] = useState('')
   const [filter, setFilter] = useState<string>('')
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -67,9 +68,9 @@ export default function Inbox() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       {/* Sidebar */}
-      <div className="w-72 border-r border-zinc-200 flex flex-col bg-white">
+      <div className={`${mobileView === 'chat' ? 'hidden' : 'flex'} md:flex w-full md:w-72 border-r border-zinc-200 flex-col bg-white`}>
         <div className="p-4 border-b border-zinc-200">
           <h2 className="font-semibold text-zinc-900">Inbox</h2>
           <div className="flex gap-1 mt-3 flex-wrap">
@@ -94,7 +95,10 @@ export default function Inbox() {
               key={conv.id}
               conv={conv}
               active={conv.id === activeConversationId}
-              onClick={() => setActiveConversation(conv.id)}
+              onClick={() => {
+                setActiveConversation(conv.id)
+                setMobileView('chat')
+              }}
             />
           ))}
           {!loading && filtered.length === 0 && (
@@ -104,18 +108,27 @@ export default function Inbox() {
       </div>
 
       {/* Chat panel */}
-      <div className="flex-1 flex flex-col bg-zinc-50">
+      <div className={`${mobileView === 'list' ? 'hidden' : 'flex'} md:flex flex-1 flex-col bg-zinc-50`}>
         {activeConv ? (
           <>
             {/* Header */}
-            <div className="px-6 py-4 bg-white border-b border-zinc-200 flex items-center justify-between">
-              <div>
-                <p className="font-semibold text-zinc-900">
-                  {activeConv.contactName || activeConv.contactIdentifier}
-                </p>
-                <p className="text-xs text-zinc-500 capitalize">{activeConv.channelType.replace('_', ' ')}</p>
+            <div className="px-4 sm:px-6 py-4 bg-white border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <button
+                  onClick={() => setMobileView('list')}
+                  className="md:hidden shrink-0 text-zinc-500 hover:text-zinc-900 text-lg leading-none"
+                  aria-label="Буцах"
+                >
+                  ←
+                </button>
+                <div className="min-w-0">
+                  <p className="font-semibold text-zinc-900 truncate">
+                    {activeConv.contactName || activeConv.contactIdentifier}
+                  </p>
+                  <p className="text-xs text-zinc-500 capitalize">{activeConv.channelType.replace('_', ' ')}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant={STATUS_VARIANT[activeConv.status]}>
                   {STATUS_LABEL[activeConv.status]}
                 </Badge>
@@ -209,7 +222,7 @@ function MessageBubble({ msg, myUserId }: { msg: { id: string; content: string; 
   return (
     <div className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
       <div
-        className={`max-w-[70%] px-4 py-2 rounded-2xl text-sm ${
+        className={`max-w-[85%] sm:max-w-[70%] px-4 py-2 rounded-2xl text-sm ${
           isCustomer
             ? 'bg-white border border-zinc-200 text-zinc-900'
             : isAi

@@ -44,23 +44,23 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50">
-      <nav className="bg-white border-b border-zinc-200 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <span className="font-bold text-zinc-900">AI Platform</span>
-          <div className="flex gap-4">
+      <nav className="bg-white border-b border-zinc-200 px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+          <span className="font-bold text-zinc-900 shrink-0">AI Platform</span>
+          <div className="flex gap-3 sm:gap-4 overflow-x-auto">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                className={`text-sm transition-colors ${location.pathname === link.to ? 'text-blue-600 font-medium' : 'text-zinc-600 hover:text-zinc-900'}`}
+                className={`text-sm transition-colors whitespace-nowrap shrink-0 ${location.pathname === link.to ? 'text-blue-600 font-medium' : 'text-zinc-600 hover:text-zinc-900'}`}
               >
                 {link.label}
               </Link>
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-zinc-400">{user?.email}</span>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="hidden sm:inline text-xs text-zinc-400">{user?.email}</span>
           <button onClick={logout} className="text-xs text-zinc-500 hover:text-zinc-900 transition-colors">
             Гарах
           </button>

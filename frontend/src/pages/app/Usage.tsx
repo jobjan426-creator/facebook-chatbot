@@ -21,7 +21,7 @@ export default function Usage() {
   if (!summary) return <div className="p-6 text-sm text-zinc-400">Ачааллаж байна...</div>
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
       <h1 className="text-xl font-semibold text-zinc-900">Хэрэглээ & Зардал</h1>
 
       {/* Summary cards */}

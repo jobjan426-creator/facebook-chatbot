@@ -79,7 +79,7 @@ export default function Settings() {
   if (!settings) return <div className="p-6 text-sm text-zinc-400">Ачааллаж байна...</div>
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-8">
+    <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
       <h1 className="text-xl font-semibold text-zinc-900">Тохиргоо</h1>
 
       {msg && <div className="bg-green-50 text-green-700 text-sm px-4 py-2 rounded-lg">{msg}</div>}

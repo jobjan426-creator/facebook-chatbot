@@ -42,7 +42,7 @@ export default function KnowledgeBase() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
+    <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
       <h1 className="text-xl font-semibold text-zinc-900">Мэдлэгийн сан</h1>
       <p className="text-sm text-zinc-500">
         PDF, DOCX, TXT файл оруулна уу. AI хариулт үүсгэхэд эдгээр документаас мэдээлэл авна.

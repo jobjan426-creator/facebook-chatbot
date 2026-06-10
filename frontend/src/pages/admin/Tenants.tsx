@@ -109,6 +109,7 @@ export default function Tenants() {
 
       {/* Table */}
       <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 border-b border-zinc-200">
             <tr>
@@ -164,6 +165,7 @@ export default function Tenants() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
