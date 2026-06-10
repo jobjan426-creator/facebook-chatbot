@@ -25,29 +25,41 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<
 }
 
 async function queryGeminiWithText(apiKey: string, combinedText: string, question: string): Promise<string> {
-  const res = await fetch(
-    `${GEMINI_BASE}/models/${GEMINI_MODEL_ID}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `Дараах баримт бичгүүд:\n\n${combinedText}\n\nДээрх баримт бичгүүд дээр үндэслэн дараах асуултад нарийвчлан, дэлгэрэнгүй хариул: ${question}`,
-          }],
-        }],
-      }),
+  const body = JSON.stringify({
+    contents: [{
+      parts: [{
+        text: `Дараах баримт бичгүүд:\n\n${combinedText}\n\nДээрх баримт бичгүүд дээр үндэслэн дараах асуултад нарийвчлан, дэлгэрэнгүй хариул: ${question}`,
+      }],
+    }],
+  })
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const res = await fetch(
+      `${GEMINI_BASE}/models/${GEMINI_MODEL_ID}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      }
+    )
+    if (res.ok) {
+      const data = (await res.json()) as {
+        candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
+      }
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || combinedText
     }
-  )
-  if (!res.ok) {
+
     const err = await res.text()
-    logger.warn({ err }, 'RAG text query failed')
-    return combinedText
+    const retriable = res.status === 503 || res.status === 429
+    if (!retriable || attempt === 3) {
+      logger.warn({ err, attempt }, 'RAG text query failed')
+      return combinedText
+    }
+    logger.warn({ err, attempt }, 'RAG text query failed, retrying')
+    await new Promise((r) => setTimeout(r, attempt * 1000))
   }
-  const data = (await res.json()) as {
-    candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
-  }
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || combinedText
+
+  return combinedText
 }
 
 async function queryGeminiWithFileIds(
