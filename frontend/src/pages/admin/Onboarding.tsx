@@ -370,10 +370,23 @@ export default function Onboarding() {
         {/* ── Step 3: Facebook ── */}
         <SectionCard step={3} title="Facebook Page" done={hasFacebook} description="Messenger мессеж болон comment автомат хариулах">
           {hasFacebook ? (
-            <ConnectedBadge
-              name={channels.find((c) => c.channelType === 'facebook_page' && c.isActive)?.channelName ?? 'Facebook Page'}
-              detail="Messenger мессеж хүлээн авч байна"
-            />
+            <div className="space-y-3">
+              <ConnectedBadge
+                name={channels.find((c) => c.channelType === 'facebook_page' && c.isActive)?.channelName ?? 'Facebook Page'}
+                detail="Messenger мессеж хүлээн авч байна"
+              />
+              <div className="flex items-center justify-between gap-3 px-1">
+                <p className="text-xs text-zinc-400">
+                  Шинэ зөвшөөрөл (жишээ нь: comment автомат хариулах) идэвхжүүлэхийн тулд дахин нэвтэрнэ үү.
+                </p>
+                <a
+                  href={`/api/channels/oauth/facebook?tenantId=${tenantId}&token=${authToken}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors flex-shrink-0"
+                >
+                  🔄 Дахин холбох
+                </a>
+              </div>
+            </div>
           ) : (
             <div className="space-y-4">
               {/* Mode toggle */}
