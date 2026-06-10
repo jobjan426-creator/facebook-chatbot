@@ -16,8 +16,8 @@ import { ChannelType } from '@prisma/client'
 const router = Router()
 
 const OAUTH_BASE = 'https://www.facebook.com/dialog/oauth'
-const FB_SCOPES = 'pages_show_list,pages_messaging,pages_read_engagement,pages_manage_metadata'
-const IG_SCOPES = 'pages_show_list,pages_messaging,pages_read_engagement,pages_manage_metadata,instagram_basic,instagram_manage_messages'
+const FB_SCOPES = 'pages_show_list,pages_messaging,pages_read_engagement,pages_manage_metadata,business_management'
+const IG_SCOPES = 'pages_show_list,pages_messaging,pages_read_engagement,pages_manage_metadata,business_management,instagram_basic,instagram_manage_messages'
 
 router.get('/status', requireAuth, tenantScope, async (req: Request, res: Response) => {
   const tenantId = req.tenantScope !== 'ALL' ? req.tenantScope : req.query.tenantId as string
@@ -129,18 +129,33 @@ router.get('/oauth/facebook/callback', async (req: Request, res: Response) => {
       data?: Array<{ id: string; name: string; access_token: string }>
       error?: unknown
     }
-    if (!pagesData.data) {
-      req.log.error({ pagesData }, 'FB OAuth: failed to fetch pages')
-      res.redirect(`${redirectBase}?error=no_pages`)
-      return
+
+    const pages = pagesData.data ?? []
+
+    // Pages assigned only via Business Manager (no personal Page role) don't
+    // show up in /me/accounts — look them up via the user's businesses.
+    if (pages.length === 0) {
+      const bizRes = await fetch(`https://graph.facebook.com/v22.0/me/businesses?access_token=${longLivedUserToken}`)
+      const bizData = (await bizRes.json()) as { data?: Array<{ id: string; name: string }>; error?: unknown }
+      for (const biz of bizData.data ?? []) {
+        const ownedRes = await fetch(
+          `https://graph.facebook.com/v22.0/${biz.id}/owned_pages?fields=id,name,access_token&access_token=${longLivedUserToken}`
+        )
+        const ownedData = (await ownedRes.json()) as { data?: Array<{ id: string; name: string; access_token: string }>; error?: unknown }
+        pages.push(...(ownedData.data ?? []))
+      }
+      req.log.info({ pagesError: pagesData.error, businesses: bizData.data, pagesAfterFallback: pages.length }, 'FB OAuth: business fallback lookup')
     }
-    if (pagesData.data.length === 0) {
-      req.log.error('FB OAuth: user has no manageable pages')
+
+    if (pages.length === 0) {
+      const permsRes = await fetch(`https://graph.facebook.com/v22.0/me/permissions?access_token=${longLivedUserToken}`)
+      const permsData = (await permsRes.json()) as { data?: Array<{ permission: string; status: string }> }
+      req.log.error({ pagesData, perms: permsData.data }, 'FB OAuth: user has no manageable pages')
       res.redirect(`${redirectBase}?error=no_pages`)
       return
     }
 
-    for (const page of pagesData.data) {
+    for (const page of pages) {
       await prisma.tenantChannel.upsert({
         where: { channelId_channelType: { channelId: page.id, channelType: ChannelType.facebook_page } },
         create: {
@@ -209,13 +224,30 @@ router.get('/oauth/instagram/callback', async (req: Request, res: Response) => {
       data?: Array<{ id: string; name: string; access_token: string }>
       error?: unknown
     }
-    if (!pagesData.data) {
+
+    const pages = pagesData.data ?? []
+
+    // Pages assigned only via Business Manager (no personal Page role) don't
+    // show up in /me/accounts — look them up via the user's businesses.
+    if (pages.length === 0) {
+      const bizRes = await fetch(`https://graph.facebook.com/v22.0/me/businesses?access_token=${longLived}`)
+      const bizData = (await bizRes.json()) as { data?: Array<{ id: string; name: string }>; error?: unknown }
+      for (const biz of bizData.data ?? []) {
+        const ownedRes = await fetch(
+          `https://graph.facebook.com/v22.0/${biz.id}/owned_pages?fields=id,name,access_token&access_token=${longLived}`
+        )
+        const ownedData = (await ownedRes.json()) as { data?: Array<{ id: string; name: string; access_token: string }>; error?: unknown }
+        pages.push(...(ownedData.data ?? []))
+      }
+    }
+
+    if (pages.length === 0) {
       req.log.error({ pagesData }, 'IG OAuth: failed to fetch pages')
       res.redirect(`${redirectBase}?error=no_pages`)
       return
     }
 
-    for (const page of pagesData.data) {
+    for (const page of pages) {
       try {
         const igId = await getInstagramAccountId(page.id, page.access_token)
 
