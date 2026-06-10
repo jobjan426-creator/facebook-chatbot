@@ -1,12 +1,12 @@
 import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
 import { calcSttCost, GEMINI_MODEL_ID } from '../config/model-pricing.js'
+import { generateContentWithFallback } from './gemini-client.js'
 import FormData from 'form-data'
 import fetch from 'node-fetch'
 import pino from 'pino'
 
 const logger = pino()
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
 async function transcribeWithWhisper(
   audioBuffer: Buffer,
@@ -83,25 +83,10 @@ async function transcribeWithGemini(
     ],
   }
 
-  const res = await fetch(
-    `${GEMINI_BASE}/models/${GEMINI_MODEL_ID}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    }
-  )
+  const result = await generateContentWithFallback(apiKey, JSON.stringify(requestBody))
+  if (!result.ok) throw new Error(`Gemini audio transcription error: ${result.err}`)
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Gemini audio transcription error: ${err}`)
-  }
-
-  const data = (await res.json()) as {
-    candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
-  }
-
-  const transcript = data.candidates?.[0]?.content?.parts?.[0]?.text
+  const transcript = result.text
   if (!transcript) throw new Error('Gemini returned empty transcription')
 
   const durationSeconds = audioBuffer.length / 16000 // rough estimate

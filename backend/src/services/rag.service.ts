@@ -1,6 +1,7 @@
 import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
 import { GEMINI_MODEL_ID } from '../config/model-pricing.js'
+import { generateContentWithFallback } from './gemini-client.js'
 import { PDFParse } from 'pdf-parse'
 import fetch from 'node-fetch'
 import pino from 'pino'
@@ -24,40 +25,6 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<
   }
 }
 
-const GEMINI_FALLBACK_MODEL_ID = 'gemini-2.0-flash'
-const GEMINI_TIMEOUT_MS = 6000
-
-async function callGemini(
-  apiKey: string,
-  modelId: string,
-  body: string
-): Promise<{ ok: true; text: string } | { ok: false; status: number; err: string }> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
-  try {
-    const res = await fetch(
-      `${GEMINI_BASE}/models/${modelId}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-        signal: controller.signal,
-      }
-    )
-    if (res.ok) {
-      const data = (await res.json()) as {
-        candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
-      }
-      return { ok: true, text: data.candidates?.[0]?.content?.parts?.[0]?.text || '' }
-    }
-    return { ok: false, status: res.status, err: await res.text() }
-  } catch (err) {
-    return { ok: false, status: 0, err: String(err) }
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
 async function queryGeminiWithText(apiKey: string, combinedText: string, question: string): Promise<string> {
   const body = JSON.stringify({
     contents: [{
@@ -67,22 +34,14 @@ async function queryGeminiWithText(apiKey: string, combinedText: string, questio
     }],
   })
 
-  // Single short-timeout attempt per model — Gemini "high demand" 503s can take
-  // tens of seconds to come back, so retrying the same model repeatedly just
-  // makes the user wait far longer than the message buffer window.
-  const primary = await callGemini(apiKey, GEMINI_MODEL_ID, body)
-  if (primary.ok) return primary.text
-  logger.warn({ err: primary.err, status: primary.status }, 'RAG text query failed, trying fallback model')
-
-  // Last resort: try a different Gemini model in case the primary one is overloaded.
   // Never fall back to the raw combinedText here — for some PDFs the locally
   // extracted text decodes into the wrong script/language (e.g. due to custom
   // font encodings), and dumping that into the prompt causes the AI to reply
   // in that wrong language.
-  const fallback = await callGemini(apiKey, GEMINI_FALLBACK_MODEL_ID, body)
-  if (fallback.ok) return fallback.text
+  const result = await generateContentWithFallback(apiKey, body)
+  if (result.ok) return result.text
 
-  logger.warn({ err: fallback.err, status: fallback.status }, 'RAG fallback model also failed')
+  logger.warn({ err: result.err, status: result.status }, 'RAG text query failed (both models)')
   return ''
 }
 

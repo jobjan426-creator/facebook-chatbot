@@ -1,6 +1,6 @@
 import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
-import { GEMINI_MODEL_ID } from '../config/model-pricing.js'
+import { generateContentWithFallback } from './gemini-client.js'
 import fetch from 'node-fetch'
 import pino from 'pino'
 
@@ -69,31 +69,19 @@ async function queryGeminiWithFile(
   mimeType: string,
   prompt: string
 ): Promise<string> {
-  const res = await fetch(
-    `${GEMINI_BASE}/models/${GEMINI_MODEL_ID}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { fileData: { mimeType, fileUri: `${GEMINI_BASE}/${fileId}` } },
-            { text: prompt },
-          ],
-        }],
-      }),
-    }
-  )
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Gemini generate failed: ${err}`)
-  }
-  const data = (await res.json()) as {
-    candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
-  }
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) throw new Error('Empty response from Gemini')
-  return text
+  const body = JSON.stringify({
+    contents: [{
+      parts: [
+        { fileData: { mimeType, fileUri: `${GEMINI_BASE}/${fileId}` } },
+        { text: prompt },
+      ],
+    }],
+  })
+
+  const result = await generateContentWithFallback(apiKey, body)
+  if (!result.ok) throw new Error(`Gemini generate failed: ${result.err}`)
+  if (!result.text) throw new Error('Empty response from Gemini')
+  return result.text
 }
 
 async function getGeminiKey(tenantId: string): Promise<string> {
