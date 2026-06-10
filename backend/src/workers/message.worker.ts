@@ -74,6 +74,7 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
                         // 2. Try Gemini inline audio — fallback if no OpenAI key
                         try {
                                       const transcript = await transcribeAudio(msg.mediaUrl, tenantId, conversationId)
+                                      if (!transcript.trim()) throw new Error('Empty transcript returned')
                                       processedTexts.push(`[Дуут мессеж]: ${transcript}`)
                         } catch (whisperErr) {
                                       logger.warn({ whisperErr }, 'Whisper failed — trying Gemini audio transcription')

@@ -1,3 +1,5 @@
+import { generateText } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
 import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
 import { generateContentWithFallback } from './gemini-client.js'
@@ -90,28 +92,63 @@ async function getGeminiKey(tenantId: string): Promise<string> {
   return decrypt(keys.geminiKey)
 }
 
+async function analyzeImageWithOpenAI(
+  apiKey: string,
+  imageBuffer: Buffer,
+  prompt: string
+): Promise<string> {
+  const model = createOpenAI({ apiKey })('gpt-4o-mini')
+  const result = await generateText({
+    model,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'image', image: imageBuffer },
+          { type: 'text', text: prompt },
+        ],
+      },
+    ],
+  })
+  return result.text
+}
+
 export async function analyzeImage(
   tenantId: string,
   imageBuffer: Buffer,
   mimeType: string,
   userQuestion: string
 ): Promise<string> {
-  const apiKey = await getGeminiKey(tenantId)
+  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
   const cleanMime = mimeType.split(';')[0].trim() || 'image/jpeg'
-
-  logger.info({ tenantId, mimeType: cleanMime, sizeKb: Math.round(imageBuffer.length / 1024) }, 'Uploading image to Gemini')
-
-  const fileId = await uploadToGeminiFileAPI(apiKey, imageBuffer, cleanMime, 'image')
   const prompt = `Энэ зургийг харж дэлгэрэнгүй тайлбарла. Харагдаж байгаа бүх объект, тоног төхөөрөмж, зүйлсийг нэрлэ. Хэрэглэгч дараах зүйлийг асуусан байна: "${userQuestion}"`
 
-  try {
-    const result = await queryGeminiWithFile(apiKey, fileId, cleanMime, prompt)
-    logger.info({ tenantId }, 'Image analyzed successfully')
-    return result
-  } finally {
-    // Clean up uploaded file (fire and forget)
-    fetch(`${GEMINI_BASE}/${fileId}?key=${apiKey}`, { method: 'DELETE' }).catch(() => {})
+  if (keys?.geminiKey) {
+    const apiKey = decrypt(keys.geminiKey)
+    logger.info({ tenantId, mimeType: cleanMime, sizeKb: Math.round(imageBuffer.length / 1024) }, 'Uploading image to Gemini')
+
+    try {
+      const fileId = await uploadToGeminiFileAPI(apiKey, imageBuffer, cleanMime, 'image')
+      try {
+        const result = await queryGeminiWithFile(apiKey, fileId, cleanMime, prompt)
+        logger.info({ tenantId }, 'Image analyzed successfully (Gemini)')
+        return result
+      } finally {
+        // Clean up uploaded file (fire and forget)
+        fetch(`${GEMINI_BASE}/${fileId}?key=${apiKey}`, { method: 'DELETE' }).catch(() => {})
+      }
+    } catch (err) {
+      logger.warn({ err, tenantId }, 'Gemini image analysis failed, trying OpenAI fallback')
+    }
   }
+
+  if (keys?.openaiKey) {
+    const result = await analyzeImageWithOpenAI(decrypt(keys.openaiKey), imageBuffer, prompt)
+    logger.info({ tenantId }, 'Image analyzed successfully (OpenAI fallback)')
+    return result
+  }
+
+  throw new Error('Image analysis failed: no working AI provider configured')
 }
 
 export async function transcribeAudioWithGemini(
