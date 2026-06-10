@@ -146,8 +146,25 @@ router.post('/:id/activate', async (req: Request, res: Response) => {
 })
 
 router.delete('/:id', async (req: Request, res: Response) => {
+  const tenant = await prisma.tenant.findUnique({ where: { id: req.params.id } })
+  if (!tenant) {
+    res.status(404).json({ error: 'Tenant not found' })
+    return
+  }
   await prisma.tenant.delete({ where: { id: req.params.id } })
+  await prisma.user.delete({ where: { id: tenant.ownerUserId } })
   res.status(204).send()
+})
+
+// Admin: remove leftover owner accounts left behind by tenant deletions
+// performed before the fix above (users with role tenant_admin and no tenant)
+router.post('/cleanup-orphan-users', async (_req: Request, res: Response) => {
+  const orphans = await prisma.user.findMany({
+    where: { role: UserRole.tenant_admin, tenant: null },
+    select: { id: true, email: true },
+  })
+  await prisma.user.deleteMany({ where: { id: { in: orphans.map((o) => o.id) } } })
+  res.json({ deleted: orphans.map((o) => o.email) })
 })
 
 export default router

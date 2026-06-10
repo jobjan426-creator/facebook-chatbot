@@ -16,8 +16,8 @@ import { ChannelType } from '@prisma/client'
 const router = Router()
 
 const OAUTH_BASE = 'https://www.facebook.com/dialog/oauth'
-const FB_SCOPES = 'pages_messaging,pages_read_engagement,pages_manage_metadata'
-const IG_SCOPES = 'pages_messaging,pages_read_engagement,pages_manage_metadata,instagram_basic,instagram_manage_messages'
+const FB_SCOPES = 'pages_show_list,pages_messaging,pages_read_engagement,pages_manage_metadata'
+const IG_SCOPES = 'pages_show_list,pages_messaging,pages_read_engagement,pages_manage_metadata,instagram_basic,instagram_manage_messages'
 
 router.get('/status', requireAuth, tenantScope, async (req: Request, res: Response) => {
   const tenantId = req.tenantScope !== 'ALL' ? req.tenantScope : req.query.tenantId as string
