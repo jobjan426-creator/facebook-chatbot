@@ -15,7 +15,7 @@ import { ChannelType } from '@prisma/client'
 
 const router = Router()
 
-const OAUTH_BASE = 'https://www.facebook.com/dialog/oauhth'
+const OAUTH_BASE = 'https://www.facebook.com/dialog/oauth'
 const FB_SCOPES = 'pages_messaging,pages_read_engagement,pages_manage_metadata'
 const IG_SCOPES = 'pages_messaging,pages_read_engagement,pages_manage_metadata,instagram_basic,instagram_manage_messages'
 
