@@ -13,9 +13,10 @@ export default function Settings() {
 
   const [channels, setChannels] = useState<{ id: string; channelType: string; channelName: string | null; isActive: boolean }[]>([])
   const [resubscribing, setResubscribing] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
-    api.getSettings().then(setSettings)
+    api.getSettings().then(setSettings).catch((err) => setLoadError(err instanceof Error ? err.message : 'Тохиргоо ачааллахад алдаа гарлаа'))
     api.getApiKeys().then(setApiKeys)
     api.getChannels().then(setChannels)
 
@@ -134,6 +135,7 @@ export default function Settings() {
     }
   }
 
+  if (loadError) return <div className="p-6 text-sm text-red-600">{loadError}</div>
   if (!settings) return <div className="p-6 text-sm text-zinc-400">Ачааллаж байна...</div>
 
   return (

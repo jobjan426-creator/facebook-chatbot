@@ -86,7 +86,7 @@ router.post('/facebook/manual', requireAuth, tenantScope, async (req: Request, r
 
 router.get('/oauth/facebook', requireAuth, (req: Request, res: Response) => {
   const tenantId = req.user.tenantId || req.query.tenantId as string
-  const state = Buffer.from(JSON.stringify({ tenantId, type: 'facebook' })).toString('base64')
+  const state = Buffer.from(JSON.stringify({ tenantId, type: 'facebook', role: req.user.role })).toString('base64')
   const redirectUri = `${env.APP_URL.replace(':5173', ':3001')}/api/channels/oauth/facebook/callback`
 
   const url = `${OAUTH_BASE}?client_id=${env.META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${FB_SCOPES}&state=${state}&response_type=code`
@@ -101,7 +101,10 @@ router.get('/oauth/facebook/callback', async (req: Request, res: Response) => {
   }
 
   try {
-    const { tenantId } = JSON.parse(Buffer.from(state, 'base64').toString())
+    const { tenantId, role } = JSON.parse(Buffer.from(state, 'base64').toString())
+    const redirectBase = role === 'super_admin'
+      ? `${env.APP_URL}/admin/tenants/${tenantId}/onboarding`
+      : `${env.APP_URL}/app/settings`
     const redirectUri = `${env.APP_URL.replace(':5173', ':3001')}/api/channels/oauth/facebook/callback`
 
     // Exchange code for short-lived token
@@ -111,7 +114,7 @@ router.get('/oauth/facebook/callback', async (req: Request, res: Response) => {
     const tokenData = (await tokenRes.json()) as { access_token: string; error?: unknown }
     if (!tokenData.access_token) {
       req.log.error({ tokenData }, 'FB OAuth: token exchange failed')
-      res.redirect(`${env.APP_URL}/app/settings?error=token_exchange_failed`)
+      res.redirect(`${redirectBase}?error=token_exchange_failed`)
       return
     }
 
@@ -128,12 +131,12 @@ router.get('/oauth/facebook/callback', async (req: Request, res: Response) => {
     }
     if (!pagesData.data) {
       req.log.error({ pagesData }, 'FB OAuth: failed to fetch pages')
-      res.redirect(`${env.APP_URL}/app/settings?error=no_pages`)
+      res.redirect(`${redirectBase}?error=no_pages`)
       return
     }
     if (pagesData.data.length === 0) {
       req.log.error('FB OAuth: user has no manageable pages')
-      res.redirect(`${env.APP_URL}/app/settings?error=no_pages`)
+      res.redirect(`${redirectBase}?error=no_pages`)
       return
     }
 
@@ -159,7 +162,7 @@ router.get('/oauth/facebook/callback', async (req: Request, res: Response) => {
       await subscribePageToWebhook(page.id, page.access_token, ['messages', 'feed'])
     }
 
-    res.redirect(`${env.APP_URL}/app/settings?success=facebook_connected`)
+    res.redirect(`${redirectBase}?success=facebook_connected`)
   } catch (err) {
     req.log.error({ err }, 'FB OAuth callback failed')
     res.redirect(`${env.APP_URL}/app/settings?error=oauth_failed`)
@@ -168,7 +171,7 @@ router.get('/oauth/facebook/callback', async (req: Request, res: Response) => {
 
 router.get('/oauth/instagram', requireAuth, (req: Request, res: Response) => {
   const tenantId = req.user.tenantId || req.query.tenantId as string
-  const state = Buffer.from(JSON.stringify({ tenantId, type: 'instagram' })).toString('base64')
+  const state = Buffer.from(JSON.stringify({ tenantId, type: 'instagram', role: req.user.role })).toString('base64')
   const redirectUri = `${env.APP_URL.replace(':5173', ':3001')}/api/channels/oauth/instagram/callback`
 
   const url = `${OAUTH_BASE}?client_id=${env.META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${IG_SCOPES}&state=${state}&response_type=code`
@@ -183,7 +186,10 @@ router.get('/oauth/instagram/callback', async (req: Request, res: Response) => {
   }
 
   try {
-    const { tenantId } = JSON.parse(Buffer.from(state, 'base64').toString())
+    const { tenantId, role } = JSON.parse(Buffer.from(state, 'base64').toString())
+    const redirectBase = role === 'super_admin'
+      ? `${env.APP_URL}/admin/tenants/${tenantId}/onboarding`
+      : `${env.APP_URL}/app/settings`
     const redirectUri = `${env.APP_URL.replace(':5173', ':3001')}/api/channels/oauth/instagram/callback`
 
     const tokenRes = await fetch(
@@ -192,7 +198,7 @@ router.get('/oauth/instagram/callback', async (req: Request, res: Response) => {
     const tokenData = (await tokenRes.json()) as { access_token: string; error?: unknown }
     if (!tokenData.access_token) {
       req.log.error({ tokenData }, 'IG OAuth: token exchange failed')
-      res.redirect(`${env.APP_URL}/app/settings?error=token_exchange_failed`)
+      res.redirect(`${redirectBase}?error=token_exchange_failed`)
       return
     }
     const { accessToken: longLived } = await exchangeForLongLivedToken(tokenData.access_token)
@@ -205,7 +211,7 @@ router.get('/oauth/instagram/callback', async (req: Request, res: Response) => {
     }
     if (!pagesData.data) {
       req.log.error({ pagesData }, 'IG OAuth: failed to fetch pages')
-      res.redirect(`${env.APP_URL}/app/settings?error=no_pages`)
+      res.redirect(`${redirectBase}?error=no_pages`)
       return
     }
 
@@ -235,7 +241,7 @@ router.get('/oauth/instagram/callback', async (req: Request, res: Response) => {
       }
     }
 
-    res.redirect(`${env.APP_URL}/app/settings?success=instagram_connected`)
+    res.redirect(`${redirectBase}?success=instagram_connected`)
   } catch (err) {
     req.log.error({ err }, 'Instagram OAuth callback failed')
     res.redirect(`${env.APP_URL}/app/settings?error=ig_oauth_failed`)

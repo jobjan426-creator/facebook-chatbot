@@ -35,6 +35,10 @@ function getTenantId(req: Request): string {
 
 router.get('/', async (req: Request, res: Response) => {
   const tenantId = getTenantId(req)
+  if (!tenantId) {
+    res.status(400).json({ error: 'tenantId is required' })
+    return
+  }
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
