@@ -32,6 +32,16 @@ export default function Settings() {
     }
   }
 
+  async function handleDeleteChannel(id: string) {
+    if (!confirm('Энэ холболтыг устгах уу?')) return
+    try {
+      await api.disconnectChannel(id)
+      setChannels((prev) => prev.filter((c) => c.id !== id))
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Устгах үед алдаа гарлаа')
+    }
+  }
+
   async function savePersona() {
     if (!settings) return
     setSaving(true)
@@ -234,14 +244,20 @@ export default function Settings() {
                 >
                   {resubscribing === ch.id ? 'Сэргээж байна...' : '🔄 Сэргээх'}
                 </button>
+                <button
+                  onClick={() => handleDeleteChannel(ch.id)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-red-200 bg-red-50 text-red-700 font-medium hover:bg-red-100 transition-colors"
+                >
+                  🗑 Устгах
+                </button>
               </div>
             </div>
           ))}
           <div className="flex gap-3 pt-2">
-            <a href="/api/channels/oauth/facebook" className="text-sm text-blue-600 hover:underline">
+            <a href={`/api/channels/oauth/facebook?token=${localStorage.getItem('token')}`} className="text-sm text-blue-600 hover:underline">
               + Facebook Page холбох
             </a>
-            <a href="/api/channels/oauth/instagram" className="text-sm text-blue-600 hover:underline">
+            <a href={`/api/channels/oauth/instagram?token=${localStorage.getItem('token')}`} className="text-sm text-blue-600 hover:underline">
               + Instagram холбох
             </a>
           </div>

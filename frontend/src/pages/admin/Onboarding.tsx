@@ -371,7 +371,7 @@ export default function Onboarding() {
         <SectionCard step={3} title="Facebook Page" done={hasFacebook} description="Messenger мессеж болон comment автомат хариулах">
           {hasFacebook ? (
             <ConnectedBadge
-              name={channels.find((c) => c.channelType === 'facebook_page')?.channelName ?? 'Facebook Page'}
+              name={channels.find((c) => c.channelType === 'facebook_page' && c.isActive)?.channelName ?? 'Facebook Page'}
               detail="Messenger мессеж хүлээн авч байна"
             />
           ) : (
@@ -463,7 +463,7 @@ export default function Onboarding() {
         <SectionCard step={4} title="Instagram" done={hasInstagram} description="Instagram DM автомат хариулах (заавал биш)" optional>
           {hasInstagram ? (
             <ConnectedBadge
-              name={channels.find((c) => c.channelType === 'instagram')?.channelName ?? 'Instagram'}
+              name={channels.find((c) => c.channelType === 'instagram' && c.isActive)?.channelName ?? 'Instagram'}
               detail="Instagram DM хүлээн авч байна"
             />
           ) : (

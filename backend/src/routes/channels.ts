@@ -34,11 +34,12 @@ router.delete('/:id', requireAuth, tenantScope, async (req: Request, res: Respon
     res.status(404).json({ error: 'Channel not found' })
     return
   }
+  if (req.tenantScope !== 'ALL' && channel.tenantId !== req.tenantScope) {
+    res.status(403).json({ error: 'Forbidden' })
+    return
+  }
 
-  await prisma.tenantChannel.update({
-    where: { id: req.params.id },
-    data: { isActive: false },
-  })
+  await prisma.tenantChannel.delete({ where: { id: req.params.id } })
 
   res.json({ success: true })
 })
