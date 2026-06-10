@@ -25,27 +25,37 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<
 }
 
 const GEMINI_FALLBACK_MODEL_ID = 'gemini-2.0-flash'
+const GEMINI_TIMEOUT_MS = 6000
 
 async function callGemini(
   apiKey: string,
   modelId: string,
   body: string
 ): Promise<{ ok: true; text: string } | { ok: false; status: number; err: string }> {
-  const res = await fetch(
-    `${GEMINI_BASE}/models/${modelId}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
+  try {
+    const res = await fetch(
+      `${GEMINI_BASE}/models/${modelId}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: controller.signal,
+      }
+    )
+    if (res.ok) {
+      const data = (await res.json()) as {
+        candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
+      }
+      return { ok: true, text: data.candidates?.[0]?.content?.parts?.[0]?.text || '' }
     }
-  )
-  if (res.ok) {
-    const data = (await res.json()) as {
-      candidates?: Array<{ content: { parts: Array<{ text?: string }> } }>
-    }
-    return { ok: true, text: data.candidates?.[0]?.content?.parts?.[0]?.text || '' }
+    return { ok: false, status: res.status, err: await res.text() }
+  } catch (err) {
+    return { ok: false, status: 0, err: String(err) }
+  } finally {
+    clearTimeout(timeout)
   }
-  return { ok: false, status: res.status, err: await res.text() }
 }
 
 async function queryGeminiWithText(apiKey: string, combinedText: string, question: string): Promise<string> {
@@ -57,18 +67,12 @@ async function queryGeminiWithText(apiKey: string, combinedText: string, questio
     }],
   })
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const result = await callGemini(apiKey, GEMINI_MODEL_ID, body)
-    if (result.ok) return result.text
-
-    const retriable = result.status === 503 || result.status === 429
-    if (!retriable || attempt === 3) {
-      logger.warn({ err: result.err, attempt }, 'RAG text query failed')
-      break
-    }
-    logger.warn({ err: result.err, attempt }, 'RAG text query failed, retrying')
-    await new Promise((r) => setTimeout(r, attempt * 1000))
-  }
+  // Single short-timeout attempt per model — Gemini "high demand" 503s can take
+  // tens of seconds to come back, so retrying the same model repeatedly just
+  // makes the user wait far longer than the message buffer window.
+  const primary = await callGemini(apiKey, GEMINI_MODEL_ID, body)
+  if (primary.ok) return primary.text
+  logger.warn({ err: primary.err, status: primary.status }, 'RAG text query failed, trying fallback model')
 
   // Last resort: try a different Gemini model in case the primary one is overloaded.
   // Never fall back to the raw combinedText here — for some PDFs the locally
@@ -78,7 +82,7 @@ async function queryGeminiWithText(apiKey: string, combinedText: string, questio
   const fallback = await callGemini(apiKey, GEMINI_FALLBACK_MODEL_ID, body)
   if (fallback.ok) return fallback.text
 
-  logger.warn({ err: fallback.err }, 'RAG fallback model also failed')
+  logger.warn({ err: fallback.err, status: fallback.status }, 'RAG fallback model also failed')
   return ''
 }
 
