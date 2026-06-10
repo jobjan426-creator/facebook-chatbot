@@ -89,7 +89,7 @@ router.get('/oauth/facebook', requireAuth, (req: Request, res: Response) => {
   const state = Buffer.from(JSON.stringify({ tenantId, type: 'facebook', role: req.user.role })).toString('base64')
   const redirectUri = `${env.APP_URL.replace(':5173', ':3001')}/api/channels/oauth/facebook/callback`
 
-  const url = `${OAUTH_BASE}?client_id=${env.META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${FB_SCOPES}&state=${state}&response_type=code`
+  const url = `${OAUTH_BASE}?client_id=${env.META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${FB_SCOPES}&state=${state}&response_type=code&auth_type=rerequest`
   res.redirect(url)
 })
 
@@ -174,7 +174,7 @@ router.get('/oauth/instagram', requireAuth, (req: Request, res: Response) => {
   const state = Buffer.from(JSON.stringify({ tenantId, type: 'instagram', role: req.user.role })).toString('base64')
   const redirectUri = `${env.APP_URL.replace(':5173', ':3001')}/api/channels/oauth/instagram/callback`
 
-  const url = `${OAUTH_BASE}?client_id=${env.META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${IG_SCOPES}&state=${state}&response_type=code`
+  const url = `${OAUTH_BASE}?client_id=${env.META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${IG_SCOPES}&state=${state}&response_type=code&auth_type=rerequest`
   res.redirect(url)
 })
 
