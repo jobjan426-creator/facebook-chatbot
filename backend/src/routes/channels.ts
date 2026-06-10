@@ -212,6 +212,23 @@ router.get('/oauth/instagram/callback', async (req: Request, res: Response) => {
   }
 })
 
+// Re-subscribe a connected channel to webhook fields (e.g. comments) on Meta's side
+router.post('/:channelId/resubscribe', requireAuth, tenantScope, async (req: Request, res: Response) => {
+    try {
+          const channel = await prisma.tenantChannel.findUnique({ where: { id: req.params.channelId } })
+          if (!channel) { res.status(404).json({ error: 'Channel not found' }); return }
+          if (req.tenantScope !== 'ALL' && channel.tenantId !== req.tenantScope) {
+                  res.status(403).json({ error: 'Forbidden' }); return
+          }
+          const accessToken = decrypt(channel.accessToken)
+          const fields = channel.channelType === 'instagram' ? ['messages', 'comments'] : ['messages', 'feed']
+          await subscribePageToWebhook(channel.channelId, accessToken, fields)
+          res.json({ success: true, fields })
+    } catch (err) {
+          res.status(500).json({ error: String(err) })
+    }
+})
+
 // Admin: Fix channel IDs by fetching real Page ID from Graph API
 router.post('/fix-channel-id/:channelId', requireAuth, tenantScope, async (req: Request, res: Response) => {
     try {

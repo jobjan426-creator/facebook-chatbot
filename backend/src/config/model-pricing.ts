@@ -33,6 +33,17 @@ export const MODEL_PRICING = {
                   isActive: true,
                   notes: 'Хямд, хурдан GPT-4o mini',
           },
+          'grok-3': {
+                  provider: 'xai' as const,
+                  modelId: 'grok-3',
+                  displayName: 'Grok 3',
+                  inputPer1M: 3.0,
+                  outputPer1M: 15.0,
+                  avgCostPerMessage: 0.01,
+                  supportsVision: false,
+                  isActive: true,
+                  notes: 'xAI Grok 3 - текст',
+          },
     },
     vision: {
           'gpt-4o': {
@@ -83,4 +94,12 @@ export function calcTextCost(
 export function calcSttCost(durationSeconds: number): number {
         const p = MODEL_PRICING.stt['whisper-1']
         return (durationSeconds / 60) * p.costPerMinute
+}
+
+export function resolveTextModelId(textModel: string): TextModelId {
+    return (MODEL_PRICING.text[textModel as TextModelId] ? textModel : 'gemini-3-flash') as TextModelId
+}
+
+export function resolveVisionModelId(visionModel: string): VisionModelId {
+    return (MODEL_PRICING.vision[visionModel as VisionModelId] ? visionModel : 'gemini-3-flash') as VisionModelId
 }

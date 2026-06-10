@@ -11,12 +11,26 @@ export default function Settings() {
   const [msg, setMsg] = useState('')
 
   const [channels, setChannels] = useState<{ id: string; channelType: string; channelName: string | null; isActive: boolean }[]>([])
+  const [resubscribing, setResubscribing] = useState<string | null>(null)
 
   useEffect(() => {
     api.getSettings().then(setSettings)
     api.getApiKeys().then(setApiKeys)
     api.getChannels().then(setChannels)
   }, [])
+
+  async function handleResubscribe(id: string) {
+    setResubscribing(id)
+    setMsg('')
+    try {
+      const res = await api.resubscribeChannel(id)
+      setMsg(`Холболт сэргээгдлээ: ${res.fields.join(', ')}`)
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Сэргээх үед алдаа гарлаа')
+    } finally {
+      setResubscribing(null)
+    }
+  }
 
   async function savePersona() {
     if (!settings) return
@@ -80,13 +94,20 @@ export default function Settings() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
-      <h1 className="text-xl font-semibold text-zinc-900">Тохиргоо</h1>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-800 p-6 text-white shadow-xl">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(139,92,246,0.3),transparent_60%)]" />
+        <div className="relative">
+          <p className="text-indigo-300 text-[11px] font-semibold uppercase tracking-widest mb-1">{settings.name}</p>
+          <h1 className="text-xl font-semibold">Тохиргоо</h1>
+          <p className="text-sm text-indigo-200 mt-1">AI чатботынхоо тохиргоог энд удирдана уу</p>
+        </div>
+      </div>
 
       {msg && <div className="bg-green-50 text-green-700 text-sm px-4 py-2 rounded-lg">{msg}</div>}
 
       {/* AI Persona */}
       <section className="bg-white rounded-xl border border-zinc-200 p-6 space-y-4">
-        <h2 className="font-semibold text-zinc-900">AI Дүр (System Prompt)</h2>
+        <SectionTitle icon="🤖" color="bg-indigo-100">AI Дүр (System Prompt)</SectionTitle>
         <textarea
           value={settings.aiPersona}
           onChange={(e) => setSettings({ ...settings, aiPersona: e.target.value })}
@@ -100,7 +121,7 @@ export default function Settings() {
       {/* Comment auto-reply */}
       <section className="bg-white rounded-xl border border-zinc-200 p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-zinc-900">Comment Auto-Reply</h2>
+          <SectionTitle icon="💬" color="bg-emerald-100">Comment Auto-Reply</SectionTitle>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -134,7 +155,7 @@ export default function Settings() {
 
       {/* Model Selection */}
       <section className="bg-white rounded-xl border border-zinc-200 p-6 space-y-4">
-        <h2 className="font-semibold text-zinc-900">AI Загвар сонголт</h2>
+        <SectionTitle icon="🧠" color="bg-violet-100">AI Загвар сонголт</SectionTitle>
         <div className="grid grid-cols-1 gap-4">
           <ModelSelector
             label="Text Model"
@@ -160,7 +181,7 @@ export default function Settings() {
 
       {/* API Keys */}
       <section className="bg-white rounded-xl border border-zinc-200 p-6 space-y-4">
-        <h2 className="font-semibold text-zinc-900">API Keys</h2>
+        <SectionTitle icon="🔑" color="bg-amber-100">API Keys</SectionTitle>
         <div className="space-y-3">
           <ApiKeyField
             label="OpenAI API Key"
@@ -189,7 +210,7 @@ export default function Settings() {
 
       {/* Channels */}
       <section className="bg-white rounded-xl border border-zinc-200 p-6 space-y-4">
-        <h2 className="font-semibold text-zinc-900">Холболтууд</h2>
+        <SectionTitle icon="🔌" color="bg-blue-100">Холболтууд</SectionTitle>
         <div className="space-y-3">
           {channels.map((ch) => (
             <div key={ch.id} className="flex items-center justify-between p-3 border border-zinc-200 rounded-lg">
@@ -199,9 +220,20 @@ export default function Settings() {
                 </p>
                 {ch.channelName && <p className="text-xs text-zinc-500">{ch.channelName}</p>}
               </div>
-              <span className={`text-xs px-2 py-1 rounded-full ${ch.isActive ? 'bg-green-100 text-green-700' : 'bg-zinc-100 text-zinc-500'}`}>
-                {ch.isActive ? 'Холбогдсон' : 'Салгасан'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2 py-1 rounded-full ${ch.isActive ? 'bg-green-100 text-green-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                  {ch.isActive ? 'Холбогдсон' : 'Салгасан'}
+                </span>
+                {ch.isActive && (
+                  <button
+                    onClick={() => handleResubscribe(ch.id)}
+                    disabled={resubscribing === ch.id}
+                    className="text-xs px-2 py-1 rounded-full border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                  >
+                    {resubscribing === ch.id ? 'Сэргээж байна...' : 'Сэргээх'}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
           <div className="flex gap-3 pt-2">
@@ -215,6 +247,15 @@ export default function Settings() {
         </div>
       </section>
     </div>
+  )
+}
+
+function SectionTitle({ icon, color, children }: { icon: string; color: string; children: React.ReactNode }) {
+  return (
+    <h2 className="font-semibold text-zinc-900 flex items-center gap-2">
+      <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 ${color}`}>{icon}</span>
+      {children}
+    </h2>
   )
 }
 

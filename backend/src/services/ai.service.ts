@@ -1,10 +1,11 @@
 import { generateText, CoreMessage } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createXai } from '@ai-sdk/xai'
 
 import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
-import { MODEL_PRICING, TextModelId, VisionModelId, calcTextCost } from '../config/model-pricing.js'
+import { MODEL_PRICING, calcTextCost, resolveTextModelId, resolveVisionModelId } from '../config/model-pricing.js'
 import { Tenant, TenantApiKeys } from '@prisma/client'
 
 type TenantWithKeys = Tenant & { apiKeys: TenantApiKeys | null }
@@ -17,16 +18,8 @@ function getDecryptedKeys(keys: TenantApiKeys | null) {
   }
 }
 
-function resolveTextModelId(tenant: TenantWithKeys): TextModelId {
-  return (MODEL_PRICING.text[tenant.textModel as TextModelId] ? tenant.textModel : 'gemini-3-flash') as TextModelId
-}
-
-function resolveVisionModelId(tenant: TenantWithKeys): VisionModelId {
-  return (MODEL_PRICING.vision[tenant.visionModel as VisionModelId] ? tenant.visionModel : 'gemini-3-flash') as VisionModelId
-}
-
 function getTextProvider(tenant: TenantWithKeys) {
-  const modelId = resolveTextModelId(tenant)
+  const modelId = resolveTextModelId(tenant.textModel)
   const pricing = (MODEL_PRICING.text as any)[modelId]
   const keys = getDecryptedKeys(tenant.apiKeys)
 
@@ -38,11 +31,15 @@ function getTextProvider(tenant: TenantWithKeys) {
     if (!keys.geminiKey) throw new Error('Gemini API key not configured')
     return { model: createGoogleGenerativeAI({ apiKey: keys.geminiKey })(pricing.modelId), pricing }
   }
+  if (pricing.provider === 'xai') {
+    if (!keys.xaiKey) throw new Error('xAI API key not configured')
+    return { model: createXai({ apiKey: keys.xaiKey })(pricing.modelId), pricing }
+  }
   throw new Error(`Unknown provider for model ${modelId}`)
 }
 
 function getVisionProvider(tenant: TenantWithKeys) {
-  const modelId = resolveVisionModelId(tenant)
+  const modelId = resolveVisionModelId(tenant.visionModel)
   const pricing = (MODEL_PRICING.vision as any)[modelId]
   const keys = getDecryptedKeys(tenant.apiKeys)
 
@@ -69,7 +66,7 @@ export interface GenerateReplyOptions {
 export async function generateReply(opts: GenerateReplyOptions): Promise<string> {
   const { tenant, history, ragContext, imageUrl, imageBuffer, conversationId } = opts
 
-  const textModelId = resolveTextModelId(tenant)
+  const textModelId = resolveTextModelId(tenant.textModel)
   const textModelConfig = MODEL_PRICING.text[textModelId]
 
   let systemPrompt = tenant.aiPersona

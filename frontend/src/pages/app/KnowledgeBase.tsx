@@ -43,10 +43,16 @@ export default function KnowledgeBase() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
-      <h1 className="text-xl font-semibold text-zinc-900">Мэдлэгийн сан</h1>
-      <p className="text-sm text-zinc-500">
-        PDF, DOCX, TXT файл оруулна уу. AI хариулт үүсгэхэд эдгээр документаас мэдээлэл авна.
-      </p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-800 p-6 text-white shadow-xl">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(139,92,246,0.3),transparent_60%)]" />
+        <div className="relative">
+          <p className="text-indigo-300 text-[11px] font-semibold uppercase tracking-widest mb-1">📚 Knowledge Base</p>
+          <h1 className="text-xl font-semibold">Мэдлэгийн сан</h1>
+          <p className="text-sm text-indigo-200 mt-1">
+            PDF, DOCX, TXT файл оруулна уу. AI хариулт үүсгэхэд эдгээр документаас мэдээлэл авна.
+          </p>
+        </div>
+      </div>
 
       {/* Drop zone */}
       <div

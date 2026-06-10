@@ -169,6 +169,9 @@ export const api = {
   disconnectChannel: (id: string) =>
     request(`${BASE}/channels/${id}`, { method: 'DELETE' }),
 
+  resubscribeChannel: (id: string) =>
+    request<{ success: boolean; fields: string[] }>(`${BASE}/channels/${id}/resubscribe`, { method: 'POST' }),
+
   connectFacebookManual: (data: { pageId: string; pageName?: string; accessToken: string }, tenantId?: string) => {
     const qs = tenantId ? `?tenantId=${tenantId}` : ''
     return request(`${BASE}/channels/facebook/manual${qs}`, {

@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { tenantScope } from '../middleware/tenantScope.js'
 import { encrypt, decrypt } from '../services/crypto.service.js'
+import { resolveTextModelId, resolveVisionModelId } from '../config/model-pricing.js'
 
 const router = Router()
 router.use(requireAuth, tenantScope)
@@ -55,7 +56,11 @@ router.get('/', async (req: Request, res: Response) => {
     res.status(404).json({ error: 'Tenant not found' })
     return
   }
-  res.json(tenant)
+  res.json({
+    ...tenant,
+    textModel: resolveTextModelId(tenant.textModel),
+    visionModel: resolveVisionModelId(tenant.visionModel),
+  })
 })
 
 router.patch('/persona', async (req: Request, res: Response) => {
