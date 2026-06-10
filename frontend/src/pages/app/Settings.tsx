@@ -9,6 +9,7 @@ export default function Settings() {
   const [newKeys, setNewKeys] = useState({ openaiKey: '', geminiKey: '', xaiKey: '' })
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [msgIsError, setMsgIsError] = useState(false)
 
   const [channels, setChannels] = useState<{ id: string; channelType: string; channelName: string | null; isActive: boolean }[]>([])
   const [resubscribing, setResubscribing] = useState<string | null>(null)
@@ -17,6 +18,30 @@ export default function Settings() {
     api.getSettings().then(setSettings)
     api.getApiKeys().then(setApiKeys)
     api.getChannels().then(setChannels)
+
+    const params = new URLSearchParams(window.location.search)
+    const success = params.get('success')
+    const error = params.get('error')
+    if (success || error) {
+      const SUCCESS_MSG: Record<string, string> = {
+        facebook_connected: 'Facebook Page амжилттай холбогдлоо ✓',
+        instagram_connected: 'Instagram амжилттай холбогдлоо ✓',
+      }
+      const ERROR_MSG: Record<string, string> = {
+        oauth_failed: 'Холболт амжилтгүй боллоо. Дахин оролдоно уу.',
+        ig_oauth_failed: 'Instagram холболт амжилтгүй боллоо. Дахин оролдоно уу.',
+        token_exchange_failed: 'Facebook-ээс token авч чадсангүй. Redirect URI тохиргоог шалгана уу.',
+        no_pages: 'Таны Facebook бүртгэлд удирдаж буй Page олдсонгүй. Page Admin эрхтэй эсэхээ шалгана уу.',
+      }
+      if (success) {
+        setMsg(SUCCESS_MSG[success] || 'Амжилттай ✓')
+        setMsgIsError(false)
+      } else if (error) {
+        setMsg(ERROR_MSG[error] || 'Алдаа гарлаа')
+        setMsgIsError(true)
+      }
+      window.history.replaceState({}, '', window.location.pathname)
+    }
   }, [])
 
   async function handleResubscribe(id: string) {
@@ -25,8 +50,10 @@ export default function Settings() {
     try {
       const res = await api.resubscribeChannel(id)
       setMsg(`Холболт сэргээгдлээ: ${res.fields.join(', ')}`)
+      setMsgIsError(false)
     } catch (err) {
       setMsg(err instanceof Error ? err.message : 'Сэргээх үед алдаа гарлаа')
+      setMsgIsError(true)
     } finally {
       setResubscribing(null)
     }
@@ -39,6 +66,7 @@ export default function Settings() {
       setChannels((prev) => prev.filter((c) => c.id !== id))
     } catch (err) {
       setMsg(err instanceof Error ? err.message : 'Устгах үед алдаа гарлаа')
+      setMsgIsError(true)
     }
   }
 
@@ -54,8 +82,10 @@ export default function Settings() {
         commentDmOpenerText: settings.commentDmOpenerText,
       })
       setMsg('Хадгалагдлаа ✓')
+      setMsgIsError(false)
     } catch {
       setMsg('Алдаа гарлаа')
+      setMsgIsError(true)
     } finally {
       setSaving(false)
       setTimeout(() => setMsg(''), 2000)
@@ -72,8 +102,10 @@ export default function Settings() {
         sttModel: settings.sttModel,
       })
       setMsg('Хадгалагдлаа ✓')
+      setMsgIsError(false)
     } catch {
       setMsg('Алдаа гарлаа')
+      setMsgIsError(true)
     } finally {
       setSaving(false)
       setTimeout(() => setMsg(''), 2000)
@@ -89,11 +121,13 @@ export default function Settings() {
       if (newKeys.xaiKey) payload.xaiKey = newKeys.xaiKey
       await api.updateApiKeys(payload)
       setMsg('API keys хадгалагдлаа ✓')
+      setMsgIsError(false)
       const fresh = await api.getApiKeys()
       setApiKeys(fresh)
       setNewKeys({ openaiKey: '', geminiKey: '', xaiKey: '' })
     } catch {
       setMsg('Алдаа гарлаа')
+      setMsgIsError(true)
     } finally {
       setSaving(false)
       setTimeout(() => setMsg(''), 2000)
@@ -113,7 +147,11 @@ export default function Settings() {
         </div>
       </div>
 
-      {msg && <div className="bg-green-50 text-green-700 text-sm px-4 py-2 rounded-lg">{msg}</div>}
+      {msg && (
+        <div className={`text-sm px-4 py-2 rounded-lg ${msgIsError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+          {msg}
+        </div>
+      )}
 
       {/* AI Persona */}
       <section className="bg-white rounded-xl border border-zinc-200 p-6 space-y-4">

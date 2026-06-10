@@ -108,7 +108,12 @@ router.get('/oauth/facebook/callback', async (req: Request, res: Response) => {
     const tokenRes = await fetch(
       `https://graph.facebook.com/v22.0/oauth/access_token?client_id=${env.META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${env.META_APP_SECRET}&code=${code}`
     )
-    const tokenData = (await tokenRes.json()) as { access_token: string }
+    const tokenData = (await tokenRes.json()) as { access_token: string; error?: unknown }
+    if (!tokenData.access_token) {
+      req.log.error({ tokenData }, 'FB OAuth: token exchange failed')
+      res.redirect(`${env.APP_URL}/app/settings?error=token_exchange_failed`)
+      return
+    }
 
     // Exchange for long-lived user token
     const { accessToken: longLivedUserToken } = await exchangeForLongLivedToken(tokenData.access_token)
@@ -118,7 +123,18 @@ router.get('/oauth/facebook/callback', async (req: Request, res: Response) => {
       `https://graph.facebook.com/v22.0/me/accounts?access_token=${longLivedUserToken}`
     )
     const pagesData = (await pagesRes.json()) as {
-      data: Array<{ id: string; name: string; access_token: string }>
+      data?: Array<{ id: string; name: string; access_token: string }>
+      error?: unknown
+    }
+    if (!pagesData.data) {
+      req.log.error({ pagesData }, 'FB OAuth: failed to fetch pages')
+      res.redirect(`${env.APP_URL}/app/settings?error=no_pages`)
+      return
+    }
+    if (pagesData.data.length === 0) {
+      req.log.error('FB OAuth: user has no manageable pages')
+      res.redirect(`${env.APP_URL}/app/settings?error=no_pages`)
+      return
     }
 
     for (const page of pagesData.data) {
@@ -144,7 +160,8 @@ router.get('/oauth/facebook/callback', async (req: Request, res: Response) => {
     }
 
     res.redirect(`${env.APP_URL}/app/settings?success=facebook_connected`)
-  } catch {
+  } catch (err) {
+    req.log.error({ err }, 'FB OAuth callback failed')
     res.redirect(`${env.APP_URL}/app/settings?error=oauth_failed`)
   }
 })
@@ -172,13 +189,24 @@ router.get('/oauth/instagram/callback', async (req: Request, res: Response) => {
     const tokenRes = await fetch(
       `https://graph.facebook.com/v22.0/oauth/access_token?client_id=${env.META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${env.META_APP_SECRET}&code=${code}`
     )
-    const tokenData = (await tokenRes.json()) as { access_token: string }
+    const tokenData = (await tokenRes.json()) as { access_token: string; error?: unknown }
+    if (!tokenData.access_token) {
+      req.log.error({ tokenData }, 'IG OAuth: token exchange failed')
+      res.redirect(`${env.APP_URL}/app/settings?error=token_exchange_failed`)
+      return
+    }
     const { accessToken: longLived } = await exchangeForLongLivedToken(tokenData.access_token)
 
     // Get pages to find linked IG accounts
     const pagesRes = await fetch(`https://graph.facebook.com/v22.0/me/accounts?access_token=${longLived}`)
     const pagesData = (await pagesRes.json()) as {
-      data: Array<{ id: string; name: string; access_token: string }>
+      data?: Array<{ id: string; name: string; access_token: string }>
+      error?: unknown
+    }
+    if (!pagesData.data) {
+      req.log.error({ pagesData }, 'IG OAuth: failed to fetch pages')
+      res.redirect(`${env.APP_URL}/app/settings?error=no_pages`)
+      return
     }
 
     for (const page of pagesData.data) {
@@ -208,7 +236,8 @@ router.get('/oauth/instagram/callback', async (req: Request, res: Response) => {
     }
 
     res.redirect(`${env.APP_URL}/app/settings?success=instagram_connected`)
-  } catch {
+  } catch (err) {
+    req.log.error({ err }, 'Instagram OAuth callback failed')
     res.redirect(`${env.APP_URL}/app/settings?error=ig_oauth_failed`)
   }
 })
