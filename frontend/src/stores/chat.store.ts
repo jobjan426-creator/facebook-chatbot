@@ -12,6 +12,7 @@ interface ChatState {
   setActiveConversation: (id: string) => Promise<void>
   sendMessage: (text: string) => Promise<void>
   updateConversationStatus: (id: string, status: string) => Promise<void>
+  deleteConversation: (id: string) => Promise<void>
   onNewMessage: (data: { conversationId: string; message: Message }) => void
   onStatusChanged: (data: { conversationId: string; status: string }) => void
 }
@@ -44,6 +45,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { activeConversationId } = get()
     if (!activeConversationId) return
     await api.sendMessage(activeConversationId, text)
+  },
+
+  deleteConversation: async (id) => {
+    await api.deleteConversation(id)
+    set((s) => {
+      const messages = { ...s.messages }
+      delete messages[id]
+      return {
+        conversations: s.conversations.filter((c) => c.id !== id),
+        messages,
+        activeConversationId: s.activeConversationId === id ? null : s.activeConversationId,
+      }
+    })
   },
 
   updateConversationStatus: async (id, status) => {

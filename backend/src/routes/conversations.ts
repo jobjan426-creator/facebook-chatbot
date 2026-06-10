@@ -105,4 +105,23 @@ router.patch('/:id/status', async (req: Request, res: Response) => {
   res.json(updated)
 })
 
+router.delete('/:id', async (req: Request, res: Response) => {
+  const where: Record<string, unknown> = { id: req.params.id }
+  if (req.tenantScope !== 'ALL') where.tenantId = req.tenantScope
+
+  const existing = await prisma.conversation.findFirst({ where })
+  if (!existing) {
+    res.status(404).json({ error: 'Conversation not found' })
+    return
+  }
+
+  await prisma.conversation.delete({ where: { id: req.params.id } })
+
+  emitToTenant(existing.tenantId, 'conversation_deleted', {
+    conversationId: existing.id,
+  })
+
+  res.json({ success: true })
+})
+
 export default router

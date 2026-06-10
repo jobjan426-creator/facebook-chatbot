@@ -21,7 +21,7 @@ const STATUS_VARIANT: Record<string, 'default' | 'success' | 'warning' | 'destru
 }
 
 export default function Inbox() {
-  const { conversations, activeConversationId, messages, loading, fetchConversations, setActiveConversation, sendMessage, updateConversationStatus } = useChatStore()
+  const { conversations, activeConversationId, messages, loading, fetchConversations, setActiveConversation, sendMessage, updateConversationStatus, deleteConversation } = useChatStore()
   const { user } = useAuthStore()
   const [text, setText] = useState('')
   const [filter, setFilter] = useState<string>('')
@@ -67,6 +67,12 @@ export default function Inbox() {
     await updateConversationStatus(activeConversationId, 'resolved')
   }
 
+  async function handleDeleteConversation(id: string) {
+    if (!confirm('Энэ харилцагчийн чатыг устгах уу?')) return
+    await deleteConversation(id)
+    if (activeConversationId === id) setMobileView('list')
+  }
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar */}
@@ -99,6 +105,7 @@ export default function Inbox() {
                 setActiveConversation(conv.id)
                 setMobileView('chat')
               }}
+              onDelete={() => handleDeleteConversation(conv.id)}
             />
           ))}
           {!loading && filtered.length === 0 && (
@@ -186,20 +193,33 @@ export default function Inbox() {
   )
 }
 
-function ConversationItem({ conv, active, onClick }: { conv: Conversation; active: boolean; onClick: () => void }) {
+function ConversationItem({ conv, active, onClick, onDelete }: { conv: Conversation; active: boolean; onClick: () => void; onDelete: () => void }) {
   const lastMsg = conv.messages?.[0]
   return (
-    <button
+    <div
       onClick={onClick}
-      className={`w-full text-left p-4 border-b border-zinc-100 transition-colors hover:bg-zinc-50 ${active ? 'bg-blue-50 border-l-2 border-l-blue-600' : ''}`}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
+      className={`w-full text-left p-4 border-b border-zinc-100 transition-colors hover:bg-zinc-50 cursor-pointer ${active ? 'bg-blue-50 border-l-2 border-l-blue-600' : ''}`}
     >
       <div className="flex items-center justify-between mb-1">
         <span className="text-sm font-medium text-zinc-900 truncate">
           {conv.contactName || conv.contactIdentifier}
         </span>
-        <Badge variant={STATUS_VARIANT[conv.status]} className="ml-2 shrink-0 text-[10px]">
-          {STATUS_LABEL[conv.status]}
-        </Badge>
+        <div className="flex items-center gap-1 ml-2 shrink-0">
+          <Badge variant={STATUS_VARIANT[conv.status]} className="text-[10px]">
+            {STATUS_LABEL[conv.status]}
+          </Badge>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete() }}
+            className="text-zinc-300 hover:text-red-600 transition-colors text-sm leading-none px-1"
+            aria-label="Устгах"
+            title="Чат устгах"
+          >
+            🗑
+          </button>
+        </div>
       </div>
       {lastMsg && (
         <p className="text-xs text-zinc-500 truncate">
@@ -210,7 +230,7 @@ function ConversationItem({ conv, active, onClick }: { conv: Conversation; activ
       <p className="text-[10px] text-zinc-400 mt-1">
         {formatDate(conv.updatedAt)}
       </p>
-    </button>
+    </div>
   )
 }
 

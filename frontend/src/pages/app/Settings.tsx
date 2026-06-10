@@ -211,6 +211,9 @@ export default function Settings() {
       {/* Channels */}
       <section className="bg-white rounded-xl border border-zinc-200 p-6 space-y-4">
         <SectionTitle icon="🔌" color="bg-blue-100">Холболтууд</SectionTitle>
+        <p className="text-xs text-zinc-400 -mt-2">
+          Comment Auto-Reply ажиллахгүй байвал доорх "🔄 Сэргээх" товчийг дарж холболтоо сэргээнэ үү.
+        </p>
         <div className="space-y-3">
           {channels.map((ch) => (
             <div key={ch.id} className="flex items-center justify-between p-3 border border-zinc-200 rounded-lg">
@@ -224,15 +227,13 @@ export default function Settings() {
                 <span className={`text-xs px-2 py-1 rounded-full ${ch.isActive ? 'bg-green-100 text-green-700' : 'bg-zinc-100 text-zinc-500'}`}>
                   {ch.isActive ? 'Холбогдсон' : 'Салгасан'}
                 </span>
-                {ch.isActive && (
-                  <button
-                    onClick={() => handleResubscribe(ch.id)}
-                    disabled={resubscribing === ch.id}
-                    className="text-xs px-2 py-1 rounded-full border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-colors disabled:opacity-50"
-                  >
-                    {resubscribing === ch.id ? 'Сэргээж байна...' : 'Сэргээх'}
-                  </button>
-                )}
+                <button
+                  onClick={() => handleResubscribe(ch.id)}
+                  disabled={resubscribing === ch.id}
+                  className="text-xs px-3 py-1.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition-colors disabled:opacity-50"
+                >
+                  {resubscribing === ch.id ? 'Сэргээж байна...' : '🔄 Сэргээх'}
+                </button>
               </div>
             </div>
           ))}

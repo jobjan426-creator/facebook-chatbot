@@ -2,6 +2,8 @@ import { prisma } from '../lib/prisma.js'
 import { appendToBuffer, BufferedMessage } from '../services/buffer.service.js'
 import { ConversationStatus, ChannelType } from '@prisma/client'
 import { emitToTenant } from '../socket/index.js'
+import { decrypt } from '../services/crypto.service.js'
+import { getUserProfile } from '../services/meta.service.js'
 import pino from 'pino'
 
 const logger = pino()
@@ -45,15 +47,34 @@ export async function handleMessage(
       where: { tenantId, channelId, isActive: true },
     })
 
+    let contactName: string | null = null
+    if (channel) {
+      contactName = await getUserProfile(sender.id, decrypt(channel.accessToken), channelType)
+    }
+
     conversation = await prisma.conversation.create({
       data: {
         tenantId,
         channelId: channel?.id,
         channelType,
         contactIdentifier: sender.id,
+        contactName,
         status: ConversationStatus.ai_active,
       },
     })
+  } else if (!conversation.contactName) {
+    const channel = await prisma.tenantChannel.findFirst({
+      where: { tenantId, channelId, isActive: true },
+    })
+    if (channel) {
+      const name = await getUserProfile(sender.id, decrypt(channel.accessToken), channelType)
+      if (name) {
+        conversation = await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: { contactName: name },
+        })
+      }
+    }
   }
 
   // Save incoming message

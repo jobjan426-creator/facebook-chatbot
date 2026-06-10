@@ -1,5 +1,5 @@
 import { decrypt } from './crypto.service.js'
-import { TenantChannel } from '@prisma/client'
+import { TenantChannel, ChannelType } from '@prisma/client'
 
 const GRAPH_API = 'https://graph.facebook.com/v22.0'
 
@@ -107,6 +107,27 @@ export async function subscribePageToWebhook(
   if (!res.ok) {
     const body = await res.text()
     throw new Error(`Webhook subscription failed: ${body}`)
+  }
+}
+
+export async function getUserProfile(
+  userId: string,
+  accessToken: string,
+  channelType: ChannelType
+): Promise<string | null> {
+  try {
+    const fields = channelType === ChannelType.instagram ? 'name,username' : 'first_name,last_name'
+    const res = await fetch(`${GRAPH_API}/${userId}?fields=${fields}&access_token=${accessToken}`)
+    if (!res.ok) return null
+
+    const data = (await res.json()) as { first_name?: string; last_name?: string; name?: string; username?: string }
+    if (channelType === ChannelType.instagram) {
+      return data.name || data.username || null
+    }
+    const name = [data.first_name, data.last_name].filter(Boolean).join(' ')
+    return name || null
+  } catch {
+    return null
   }
 }
 

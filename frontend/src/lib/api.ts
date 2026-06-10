@@ -61,6 +61,9 @@ export const api = {
       body: JSON.stringify({ status, handoffReason }),
     }),
 
+  deleteConversation: (id: string) =>
+    request(`${BASE}/conversations/${id}`, { method: 'DELETE' }),
+
   // Messages
   getMessages: (conversationId: string, offset = 0) =>
     request<Message[]>(`${BASE}/messages?conversationId=${conversationId}&offset=${offset}`),
