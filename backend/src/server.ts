@@ -1,4 +1,5 @@
 import './config/index.js' // validate env first
+import 'express-async-errors'
 import { createServer } from 'http'
 import express, { Request, Response, NextFunction } from 'express'
 import helmet from 'helmet'
@@ -94,6 +95,14 @@ if (env.NODE_ENV === 'production') {
                   res.sendFile(path.join(publicPath, 'index.html'))
         })
 }
+
+// Global error handler — keeps a single failed request from crashing the whole server
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+        logger.error({ err, path: req.path }, 'Unhandled request error')
+        if (!res.headersSent) {
+                  res.status(500).json({ error: 'Internal server error' })
+        }
+})
 
 const httpServer = createServer(app)
 initSocket(httpServer)

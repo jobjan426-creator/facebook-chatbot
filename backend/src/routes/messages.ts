@@ -24,7 +24,7 @@ router.get('/', async (req: Request, res: Response) => {
   }
 
   const where: Record<string, unknown> = { conversationId }
-  if (req.tenantScope !== 'ALL') where.tenantId = req.tenantScope
+  if (req.tenantScope !== 'ALL') where.conversation = { tenantId: req.tenantScope }
 
   const messages = await prisma.message.findMany({
     where,
