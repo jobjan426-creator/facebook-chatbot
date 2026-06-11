@@ -158,23 +158,34 @@ export async function transcribeAudio(
   const audioBuffer = await audioRes.buffer()
   const contentType = audioRes.headers.get('content-type') || 'audio/mpeg'
 
-  // Prefer Whisper (OpenAI) — fall back to Gemini if no OpenAI key
-  if (keys.openaiKey) {
-    logger.info({ tenantId }, 'Transcribing with Whisper')
-    return transcribeWithWhisper(
-      audioBuffer,
-      contentType,
-      decrypt(keys.openaiKey),
-      tenantId,
-      conversationId
-    )
+  // Gemini has proven far more reliable than Whisper for Mongolian audio —
+  // Whisper repeatedly misdetects Mongolian as English/Kazakh and produces
+  // fluent-sounding gibberish. Prefer Gemini when a key is available, and
+  // only fall back to Whisper if Gemini fails or no Gemini key is set.
+  if (keys.geminiKey) {
+    try {
+      logger.info({ tenantId }, 'Transcribing with Gemini')
+      return await transcribeWithGemini(
+        audioBuffer,
+        contentType,
+        decrypt(keys.geminiKey),
+        tenantId,
+        conversationId
+      )
+    } catch (err) {
+      if (!keys.openaiKey) throw err
+      logger.warn(
+        { tenantId, err: err instanceof Error ? err.message : String(err) },
+        'Gemini transcription failed — trying Whisper'
+      )
+    }
   }
 
-  logger.info({ tenantId }, 'No OpenAI key — transcribing with Gemini')
-  return transcribeWithGemini(
+  logger.info({ tenantId }, 'Transcribing with Whisper')
+  return transcribeWithWhisper(
     audioBuffer,
     contentType,
-    decrypt(keys.geminiKey!),
+    decrypt(keys.openaiKey!),
     tenantId,
     conversationId
   )
