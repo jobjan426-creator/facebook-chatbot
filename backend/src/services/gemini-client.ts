@@ -4,7 +4,7 @@ import { GEMINI_MODEL_ID } from '../config/model-pricing.js'
 
 const logger = pino()
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
-const GEMINI_FALLBACK_MODEL_ID = 'gemini-3.5-flash-lite'
+const GEMINI_FALLBACK_MODEL_ID = 'gemini-2.0-flash-lite'
 const GEMINI_TIMEOUT_MS = 6000
 
 export type GeminiResult =

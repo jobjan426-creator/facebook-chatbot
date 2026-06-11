@@ -1,6 +1,8 @@
 import { decrypt } from './crypto.service.js'
 import { TenantChannel, ChannelType } from '@prisma/client'
+import pino from 'pino'
 
+const logger = pino()
 const GRAPH_API = 'https://graph.facebook.com/v22.0'
 
 export async function sendTypingAction(
@@ -118,7 +120,10 @@ export async function getUserProfile(
   try {
     const fields = channelType === ChannelType.instagram ? 'name,username' : 'first_name,last_name'
     const res = await fetch(`${GRAPH_API}/${userId}?fields=${fields}&access_token=${accessToken}`)
-    if (!res.ok) return null
+    if (!res.ok) {
+      logger.warn({ userId, channelType, status: res.status, body: await res.text() }, 'getUserProfile request failed')
+      return null
+    }
 
     const data = (await res.json()) as { first_name?: string; last_name?: string; name?: string; username?: string }
     if (channelType === ChannelType.instagram) {
@@ -126,7 +131,8 @@ export async function getUserProfile(
     }
     const name = [data.first_name, data.last_name].filter(Boolean).join(' ')
     return name || null
-  } catch {
+  } catch (err) {
+    logger.warn({ err, userId, channelType }, 'getUserProfile threw')
     return null
   }
 }
