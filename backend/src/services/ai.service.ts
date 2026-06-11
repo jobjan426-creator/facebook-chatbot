@@ -137,12 +137,31 @@ export async function generateReply(opts: GenerateReplyOptions): Promise<string>
   })
 
   // Auto-handoff detection
-  const handoffKeywords = ['оператор', 'менежер', 'хүн', 'гомдол', 'буцаалт', 'operator', 'manager']
+  // Single words must match a whole word (not a substring) to avoid false
+  // positives like "хүнс" (groceries/food) containing "хүн" (person).
+  const handoffWords = ['оператор', 'менежер', 'гомдол', 'operator', 'manager']
+  const handoffPhrases = [
+    'хүнтэй ярих',
+    'хүнтэй холбогдох',
+    'ажилтантай ярих',
+    'ажилтантай холбогдох',
+    'админтай холбогдох',
+    'хариуцсан хүн',
+    'talk to a human',
+    'talk to an agent',
+    'speak to a person',
+  ]
   const userMessages = messages.filter((m) => m.role === 'user')
   const lastUserContent = userMessages[userMessages.length - 1]?.content
   const lastUserText = typeof lastUserContent === 'string' ? lastUserContent : ''
+  const lastUserTextLower = lastUserText.toLowerCase()
+  const lastUserWords = lastUserTextLower.split(/[^\p{L}\p{N}]+/u)
 
-  if (handoffKeywords.some((kw) => lastUserText.toLowerCase().includes(kw))) {
+  const handoffTriggered =
+    handoffWords.some((kw) => lastUserWords.includes(kw)) ||
+    handoffPhrases.some((p) => lastUserTextLower.includes(p))
+
+  if (handoffTriggered) {
     if (conversationId) {
       await prisma.conversation.update({
         where: { id: conversationId },
