@@ -8,6 +8,20 @@ import pino from 'pino'
 
 const logger = pino()
 
+// Whisper picks its decoder based on the filename extension, not the
+// Content-Type header. Facebook voice messages are usually served as
+// audio/mp4 (AAC/m4a); naming the upload "audio.mp3" makes Whisper try to
+// parse an mp4 container as mp3 and reject the whole file.
+function extensionForContentType(contentType: string): string {
+  const type = contentType.toLowerCase()
+  if (type.includes('mp4') || type.includes('m4a') || type.includes('aac')) return 'm4a'
+  if (type.includes('ogg')) return 'ogg'
+  if (type.includes('wav')) return 'wav'
+  if (type.includes('webm')) return 'webm'
+  if (type.includes('mpeg') || type.includes('mp3')) return 'mp3'
+  return 'mp3'
+}
+
 async function transcribeWithWhisper(
   audioBuffer: Buffer,
   contentType: string,
@@ -17,7 +31,7 @@ async function transcribeWithWhisper(
 ): Promise<string> {
   const form = new FormData()
   form.append('file', audioBuffer, {
-    filename: 'audio.mp3',
+    filename: `audio.${extensionForContentType(contentType)}`,
     contentType,
   })
   form.append('model', 'whisper-1')

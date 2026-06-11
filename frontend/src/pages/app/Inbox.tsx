@@ -234,7 +234,7 @@ function ConversationItem({ conv, active, onClick, onDelete }: { conv: Conversat
   )
 }
 
-function MessageBubble({ msg, myUserId }: { msg: { id: string; content: string; sentBy: string; createdAt: string }; myUserId?: string }) {
+function MessageBubble({ msg, myUserId }: { msg: { id: string; content: string; sentBy: string; createdAt: string; mediaUrl?: string | null; mediaType?: string | null }; myUserId?: string }) {
   const isCustomer = msg.sentBy === 'customer'
   const isAi = msg.sentBy === 'ai'
   const isMe = msg.sentBy === myUserId
@@ -255,7 +255,15 @@ function MessageBubble({ msg, myUserId }: { msg: { id: string; content: string; 
             {isAi ? '🤖 AI' : '👤 Оператор'}
           </p>
         )}
-        <p className="whitespace-pre-wrap">{msg.content}</p>
+        {msg.mediaType === 'audio' && msg.mediaUrl ? (
+          <audio controls src={msg.mediaUrl} className="max-w-full" />
+        ) : msg.mediaType === 'image' && msg.mediaUrl ? (
+          <a href={msg.mediaUrl} target="_blank" rel="noreferrer">
+            <img src={msg.mediaUrl} alt="" className="max-w-full max-h-64 rounded-lg" />
+          </a>
+        ) : (
+          <p className="whitespace-pre-wrap">{msg.content}</p>
+        )}
         <p className="text-[10px] opacity-60 mt-1 text-right">{formatDate(msg.createdAt)}</p>
       </div>
     </div>

@@ -78,7 +78,8 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
                                       logger.info({ tenantId, conversationId, transcript: transcript.slice(0, 300) }, 'Whisper transcript')
                                       processedTexts.push(`[Дуут мессеж]: ${transcript}`)
                         } catch (whisperErr) {
-                                      logger.warn({ whisperErr }, 'Whisper failed — trying Gemini audio transcription')
+                                      const whisperErrMsg = whisperErr instanceof Error ? whisperErr.message : String(whisperErr)
+                                      logger.warn({ err: whisperErrMsg }, 'Whisper failed — trying Gemini audio transcription')
                                       try {
                                                     const audioRes = await fetch(msg.mediaUrl)
                                                     if (!audioRes.ok) throw new Error(`Audio download failed: ${audioRes.status}`)
@@ -88,7 +89,8 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
                                                     logger.info({ tenantId, conversationId, transcript: transcript.slice(0, 300) }, 'Gemini transcript')
                                                     processedTexts.push(`[Дуут мессеж]: ${transcript}`)
                                       } catch (geminiErr) {
-                                                    logger.error({ whisperErr, geminiErr }, 'Both voice transcription methods failed')
+                                                    const geminiErrMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr)
+                                                    logger.error({ err: `whisper: ${whisperErrMsg} | gemini: ${geminiErrMsg}` }, 'Both voice transcription methods failed')
                                                     processedTexts.push('[Дуут мессеж — таниж чадсангүй, текстээр бичнэ үү]')
                                       }
                         }
