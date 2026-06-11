@@ -1,3 +1,5 @@
+import { generateText } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
 import { decrypt } from './crypto.service.js'
 import { prisma } from '../lib/prisma.js'
 import { GEMINI_MODEL_ID } from '../config/model-pricing.js'
@@ -25,23 +27,31 @@ async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<
   }
 }
 
-async function queryGeminiWithText(apiKey: string, combinedText: string, question: string): Promise<string> {
-  const body = JSON.stringify({
-    contents: [{
-      parts: [{
-        text: `Дараах баримт бичгүүд:\n\n${combinedText}\n\nДээрх баримт бичгүүд дээр үндэслэн дараах асуултад нарийвчлан, дэлгэрэнгүй хариул: ${question}`,
-      }],
-    }],
-  })
+async function queryWithText(
+  apiKey: string | undefined,
+  openaiKey: string | undefined,
+  combinedText: string,
+  question: string
+): Promise<string> {
+  const prompt = `Дараах баримт бичгүүд:\n\n${combinedText}\n\nДээрх баримт бичгүүд дээр үндэслэн дараах асуултад нарийвчлан, дэлгэрэнгүй хариул: ${question}`
 
   // Never fall back to the raw combinedText here — for some PDFs the locally
   // extracted text decodes into the wrong script/language (e.g. due to custom
   // font encodings), and dumping that into the prompt causes the AI to reply
   // in that wrong language.
-  const result = await generateContentWithFallback(apiKey, body)
-  if (result.ok) return result.text
+  if (apiKey) {
+    const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    const result = await generateContentWithFallback(apiKey, body)
+    if (result.ok) return result.text
+    logger.warn({ err: result.err, status: result.status }, 'RAG text query failed (Gemini), trying OpenAI fallback')
+  }
 
-  logger.warn({ err: result.err, status: result.status }, 'RAG text query failed (both models)')
+  if (openaiKey) {
+    const model = createOpenAI({ apiKey: openaiKey })('gpt-4o-mini')
+    const result = await generateText({ model, messages: [{ role: 'user', content: prompt }] })
+    return result.text
+  }
+
   return ''
 }
 
@@ -165,8 +175,9 @@ export async function queryKnowledgeBase(
   question: string
 ): Promise<string> {
   const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
-  if (!keys?.geminiKey) return ''
-  const apiKey = decrypt(keys.geminiKey)
+  if (!keys?.geminiKey && !keys?.openaiKey) return ''
+  const apiKey = keys?.geminiKey ? decrypt(keys.geminiKey) : undefined
+  const openaiKey = keys?.openaiKey ? decrypt(keys.openaiKey) : undefined
 
   const files = (await prisma.tenantKnowledgeFile.findMany({
     where: { tenantId },
@@ -182,13 +193,13 @@ export async function queryKnowledgeBase(
       .map((f) => `=== ${f.fileName} ===\n${f.textContent}`)
       .join('\n\n')
     logger.info({ tenantId, fileCount: filesWithText.length }, 'RAG using stored text content')
-    return queryGeminiWithText(apiKey, combinedText, question)
+    return queryWithText(apiKey, openaiKey, combinedText, question)
   }
 
   // Fallback: use Gemini File API (for files uploaded before text extraction was added)
   // Note: these files expire after 48h
   const filesWithGemini = files.filter((f) => f.geminiFileId)
-  if (filesWithGemini.length > 0) {
+  if (filesWithGemini.length > 0 && apiKey) {
     logger.info({ tenantId }, 'RAG falling back to Gemini File API (re-upload PDF to use local text extraction)')
     return queryGeminiWithFileIds(apiKey, filesWithGemini, question)
   }
