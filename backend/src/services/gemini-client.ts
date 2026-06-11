@@ -4,8 +4,8 @@ import { GEMINI_MODEL_ID } from '../config/model-pricing.js'
 
 const logger = pino()
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
-const GEMINI_FALLBACK_MODEL_ID = 'gemini-2.0-flash-lite'
 const GEMINI_TIMEOUT_MS = 6000
+const GEMINI_RETRY_DELAY_MS = 1500
 
 export type GeminiResult =
   | { ok: true; text: string }
@@ -38,17 +38,29 @@ async function callGeminiModel(apiKey: string, modelId: string, body: string): P
   }
 }
 
-// Single short-timeout attempt per model — Gemini "high demand" 503s can take
-// tens of seconds to come back, so retrying the same model repeatedly just
-// makes the user wait far longer than the message buffer window.
-export async function generateContentWithFallback(apiKey: string, body: string): Promise<GeminiResult> {
-  const primary = await callGeminiModel(apiKey, GEMINI_MODEL_ID, body)
-  if (primary.ok) return primary
-  logger.warn({ err: primary.err, status: primary.status }, 'Gemini generateContent failed, trying fallback model')
+// 503 (model overloaded) and aborted/network errors (status 0) are transient —
+// Gemini's own error message says these spikes are "usually temporary", so a
+// single short retry after a brief delay often succeeds. Other errors (404
+// model not found, 400 bad request, 403/429 key issues) won't be fixed by
+// retrying, so fail fast in those cases.
+function isRetryable(result: GeminiResult): boolean {
+  return !result.ok && (result.status === 503 || result.status === 0)
+}
 
-  const fallback = await callGeminiModel(apiKey, GEMINI_FALLBACK_MODEL_ID, body)
-  if (!fallback.ok) {
-    logger.warn({ err: fallback.err, status: fallback.status }, 'Gemini fallback model also failed')
+export async function generateContentWithFallback(apiKey: string, body: string): Promise<GeminiResult> {
+  const first = await callGeminiModel(apiKey, GEMINI_MODEL_ID, body)
+  if (first.ok) return first
+  if (!isRetryable(first)) {
+    logger.warn({ err: first.err, status: first.status }, 'Gemini generateContent failed (non-retryable)')
+    return first
   }
-  return fallback
+
+  logger.warn({ err: first.err, status: first.status }, 'Gemini generateContent failed (transient), retrying')
+  await new Promise((r) => setTimeout(r, GEMINI_RETRY_DELAY_MS))
+
+  const retry = await callGeminiModel(apiKey, GEMINI_MODEL_ID, body)
+  if (!retry.ok) {
+    logger.warn({ err: retry.err, status: retry.status }, 'Gemini retry also failed')
+  }
+  return retry
 }
