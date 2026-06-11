@@ -22,6 +22,7 @@ async function transcribeWithWhisper(
   })
   form.append('model', 'whisper-1')
   form.append('response_format', 'json')
+  form.append('language', 'mn')
 
   const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
