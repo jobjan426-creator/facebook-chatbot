@@ -22,7 +22,7 @@ const STATUS_VARIANT: Record<string, 'default' | 'success' | 'warning' | 'destru
 
 export default function Inbox() {
   const { conversations, activeConversationId, messages, loading, fetchConversations, setActiveConversation, sendMessage, updateConversationStatus, deleteConversation } = useChatStore()
-  const { user } = useAuthStore()
+  const { user, token } = useAuthStore()
   const [text, setText] = useState('')
   const [filter, setFilter] = useState<string>('')
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list')
@@ -160,7 +160,7 @@ export default function Inbox() {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {activeMessages.map((msg) => (
-                <MessageBubble key={msg.id} msg={msg} myUserId={user?.id} />
+                <MessageBubble key={msg.id} msg={msg} myUserId={user?.id} token={token} />
               ))}
               <div ref={messagesEndRef} />
             </div>
@@ -234,10 +234,13 @@ function ConversationItem({ conv, active, onClick, onDelete }: { conv: Conversat
   )
 }
 
-function MessageBubble({ msg, myUserId }: { msg: { id: string; content: string; sentBy: string; createdAt: string; mediaUrl?: string | null; mediaType?: string | null }; myUserId?: string }) {
+function MessageBubble({ msg, myUserId, token }: { msg: { id: string; content: string; sentBy: string; createdAt: string; mediaUrl?: string | null; mediaType?: string | null }; myUserId?: string; token?: string | null }) {
   const isCustomer = msg.sentBy === 'customer'
   const isAi = msg.sentBy === 'ai'
   const isMe = msg.sentBy === myUserId
+  const proxiedMediaUrl = msg.mediaUrl
+    ? `/api/messages/media-proxy?url=${encodeURIComponent(msg.mediaUrl)}&token=${token || ''}`
+    : null
 
   return (
     <div className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
@@ -255,11 +258,11 @@ function MessageBubble({ msg, myUserId }: { msg: { id: string; content: string; 
             {isAi ? '🤖 AI' : '👤 Оператор'}
           </p>
         )}
-        {msg.mediaType === 'audio' && msg.mediaUrl ? (
-          <audio controls src={msg.mediaUrl} className="max-w-full" />
-        ) : msg.mediaType === 'image' && msg.mediaUrl ? (
-          <a href={msg.mediaUrl} target="_blank" rel="noreferrer">
-            <img src={msg.mediaUrl} alt="" className="max-w-full max-h-64 rounded-lg" />
+        {msg.mediaType === 'audio' && proxiedMediaUrl ? (
+          <audio controls src={proxiedMediaUrl} className="max-w-full" />
+        ) : msg.mediaType === 'image' && proxiedMediaUrl ? (
+          <a href={proxiedMediaUrl} target="_blank" rel="noreferrer">
+            <img src={proxiedMediaUrl} alt="" className="max-w-full max-h-64 rounded-lg" />
           </a>
         ) : (
           <p className="whitespace-pre-wrap">{msg.content}</p>

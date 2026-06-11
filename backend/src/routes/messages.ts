@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
+import fetch from 'node-fetch'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { tenantScope } from '../middleware/tenantScope.js'
@@ -9,6 +10,50 @@ import { ConversationStatus } from '@prisma/client'
 
 const router = Router()
 router.use(requireAuth, tenantScope)
+
+// Allowed Meta CDN hosts for media proxying — prevents this from becoming an open proxy (SSRF)
+const ALLOWED_MEDIA_HOSTS = /(^|\.)(fbcdn\.net|fbsbx\.com|cdninstagram\.com)$/i
+
+// Proxies customer-sent audio/image attachments from Meta's CDN so the browser
+// can play/view them without hitting CORS or hotlink-protection issues.
+router.get('/media-proxy', async (req: Request, res: Response) => {
+  const url = req.query.url as string | undefined
+  if (!url) {
+    res.status(400).json({ error: 'url required' })
+    return
+  }
+
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    res.status(400).json({ error: 'Invalid url' })
+    return
+  }
+
+  if (!ALLOWED_MEDIA_HOSTS.test(parsed.hostname)) {
+    res.status(400).json({ error: 'Host not allowed' })
+    return
+  }
+
+  const upstream = await fetch(url)
+  if (!upstream.ok) {
+    res.status(upstream.status).json({ error: 'Failed to fetch media' })
+    return
+  }
+
+  const contentType = upstream.headers.get('content-type')
+  const contentLength = upstream.headers.get('content-length')
+  if (contentType) res.setHeader('Content-Type', contentType)
+  if (contentLength) res.setHeader('Content-Length', contentLength)
+  res.setHeader('Cache-Control', 'private, max-age=3600')
+
+  if (!upstream.body) {
+    res.status(502).json({ error: 'No media body' })
+    return
+  }
+  upstream.body.pipe(res)
+})
 
 const sendSchema = z.object({
   conversationId: z.string().uuid(),

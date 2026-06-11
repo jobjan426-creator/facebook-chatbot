@@ -36,6 +36,11 @@ async function transcribeWithWhisper(
   })
   form.append('model', 'whisper-1')
   form.append('response_format', 'json')
+  // The API rejects language="mn" outright, so bias the model toward
+  // Mongolian via a Mongolian-language prompt instead — without this,
+  // short/quiet clips are sometimes misdetected as English and Whisper
+  // hallucinates generic English filler text instead of transcribing.
+  form.append('prompt', 'Сайн байна уу. Энэ бол монгол хэл дээрх дуут мессеж.')
 
   const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
