@@ -22,6 +22,15 @@ function extensionForContentType(contentType: string): string {
   return 'mp3'
 }
 
+// Mongolian and Kazakh both use Cyrillic with heavy overlap, but Kazakh has
+// several letters that don't exist in Mongolian (Әә ҒғҚқ Ңң Ұұ Іі Һһ). When
+// Whisper misdetects short/quiet Mongolian clips as Kazakh, it "transcribes"
+// them phonetically using these letters, producing fluent-looking but
+// meaningless gibberish. Treat their presence as a failed transcription.
+function looksLikeKazakh(text: string): boolean {
+  return /[әғқңұіһӘҒҚҢҰІҺ]/.test(text)
+}
+
 async function transcribeWithWhisper(
   audioBuffer: Buffer,
   contentType: string,
@@ -72,6 +81,10 @@ async function transcribeWithWhisper(
     },
   })
 
+  if (looksLikeKazakh(result.text)) {
+    throw new Error(`Whisper misdetected language as Kazakh: "${result.text}"`)
+  }
+
   return result.text
 }
 
@@ -107,6 +120,9 @@ async function transcribeWithGemini(
 
   const transcript = result.text
   if (!transcript) throw new Error('Gemini returned empty transcription')
+  if (looksLikeKazakh(transcript)) {
+    throw new Error(`Gemini misdetected language as Kazakh: "${transcript}"`)
+  }
 
   const durationSeconds = audioBuffer.length / 16000 // rough estimate
   await prisma.aiUsageLog.create({
