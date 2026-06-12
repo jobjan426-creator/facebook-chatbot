@@ -14,11 +14,13 @@ const upload = multer({
   fileFilter: (_req, file, cb) => {
     const allowed = ['application/pdf', 'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain', 'application/json']
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain', 'text/csv', 'application/json']
     if (allowed.includes(file.mimetype)) {
       cb(null, true)
     } else {
-      cb(new Error('Only PDF, DOCX, TXT, JSON files allowed') as unknown as null, false)
+      cb(new Error('Only PDF, DOCX, XLSX, PPTX, CSV, TXT, JSON files allowed') as unknown as null, false)
     }
   },
 })

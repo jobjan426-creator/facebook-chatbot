@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js'
 import { GEMINI_MODEL_ID } from '../config/model-pricing.js'
 import { generateContentWithFallback } from './gemini-client.js'
 import { PDFParse } from 'pdf-parse'
+import { OfficeParser } from 'officeparser'
 import fetch from 'node-fetch'
 import pino from 'pino'
 
@@ -14,15 +15,32 @@ const GEMINI_UPLOAD_BASE = 'https://generativelanguage.googleapis.com/upload/v1b
 
 const MAX_TEXT_CHARS = 80_000
 
+// Word, Excel (incl. Google Sheets exports) and PowerPoint files — extracted
+// via officeparser, which handles the OOXML zip formats.
+const OFFICE_MIME_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+])
+
 async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string | null> {
-  if (mimeType !== 'application/pdf') return null
   try {
-    const parser = new PDFParse({ data: buffer })
-    const result = await parser.getText()
-    await parser.destroy()
-    return result.text.slice(0, MAX_TEXT_CHARS)
+    if (mimeType === 'application/pdf') {
+      const parser = new PDFParse({ data: buffer })
+      const result = await parser.getText()
+      await parser.destroy()
+      return result.text.slice(0, MAX_TEXT_CHARS)
+    }
+    if (mimeType === 'text/plain' || mimeType === 'application/json' || mimeType === 'text/csv') {
+      return buffer.toString('utf-8').slice(0, MAX_TEXT_CHARS)
+    }
+    if (OFFICE_MIME_TYPES.has(mimeType)) {
+      const ast = await OfficeParser.parseOffice(buffer)
+      return ast.toText().slice(0, MAX_TEXT_CHARS)
+    }
+    return null
   } catch (err) {
-    logger.warn({ err }, 'PDF text extraction failed')
+    logger.warn({ err, mimeType }, 'Document text extraction failed')
     return null
   }
 }
@@ -153,7 +171,7 @@ export async function uploadFileToGemini(
   // Extract text locally so we don't depend on 48h Gemini File TTL
   const textContent = await extractTextFromBuffer(fileBuffer, mimeType)
   if (textContent) {
-    logger.info({ tenantId, fileName, chars: textContent.length }, 'PDF text extracted')
+    logger.info({ tenantId, fileName, chars: textContent.length }, 'Document text extracted')
   }
 
   await prisma.tenantKnowledgeFile.create({

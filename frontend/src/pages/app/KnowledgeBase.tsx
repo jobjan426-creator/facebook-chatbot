@@ -49,7 +49,7 @@ export default function KnowledgeBase() {
           <p className="text-indigo-300 text-[11px] font-semibold uppercase tracking-widest mb-1">📚 Knowledge Base</p>
           <h1 className="text-xl font-semibold">Мэдлэгийн сан</h1>
           <p className="text-sm text-indigo-200 mt-1">
-            PDF, DOCX, TXT файл оруулна уу. AI хариулт үүсгэхэд эдгээр документаас мэдээлэл авна.
+            PDF, Word, Excel (Google Sheets), PowerPoint, TXT файл оруулна уу. AI хариулт үүсгэхэд эдгээр документаас мэдээлэл авна.
           </p>
         </div>
       </div>
@@ -65,7 +65,7 @@ export default function KnowledgeBase() {
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.doc,.docx,.txt,.json"
+          accept=".pdf,.doc,.docx,.xlsx,.pptx,.csv,.txt,.json"
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f) }}
         />
@@ -73,7 +73,7 @@ export default function KnowledgeBase() {
         <p className="text-sm font-medium text-zinc-700">
           {uploading ? 'Оруулж байна...' : 'Файл чирж оруулах эсвэл дарж сонгоно уу'}
         </p>
-        <p className="text-xs text-zinc-400 mt-1">PDF, DOCX, TXT — хамгийн их 50MB</p>
+        <p className="text-xs text-zinc-400 mt-1">PDF, DOCX, XLSX, PPTX, CSV, TXT — хамгийн их 50MB</p>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
