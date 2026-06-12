@@ -103,6 +103,7 @@ model TenantApiKeys {
   openaiKey String?  @map("openai_key")
   geminiKey String?  @map("gemini_key")
   xaiKey    String?  @map("xai_key")
+  sonorKey  String?  @map("sonor_key")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)

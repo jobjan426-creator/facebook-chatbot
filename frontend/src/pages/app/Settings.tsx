@@ -5,8 +5,8 @@ import { MODEL_PRICING_DISPLAY } from '@/lib/model-pricing'
 
 export default function Settings() {
   const [settings, setSettings] = useState<TenantSettings | null>(null)
-  const [apiKeys, setApiKeys] = useState<ApiKeys>({ openaiKey: null, geminiKey: null, xaiKey: null })
-  const [newKeys, setNewKeys] = useState({ openaiKey: '', geminiKey: '', xaiKey: '' })
+  const [apiKeys, setApiKeys] = useState<ApiKeys>({ openaiKey: null, geminiKey: null, xaiKey: null, sonorKey: null })
+  const [newKeys, setNewKeys] = useState({ openaiKey: '', geminiKey: '', xaiKey: '', sonorKey: '' })
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [msgIsError, setMsgIsError] = useState(false)
@@ -120,12 +120,13 @@ export default function Settings() {
       if (newKeys.openaiKey) payload.openaiKey = newKeys.openaiKey
       if (newKeys.geminiKey) payload.geminiKey = newKeys.geminiKey
       if (newKeys.xaiKey) payload.xaiKey = newKeys.xaiKey
+      if (newKeys.sonorKey) payload.sonorKey = newKeys.sonorKey
       await api.updateApiKeys(payload)
       setMsg('API keys хадгалагдлаа ✓')
       setMsgIsError(false)
       const fresh = await api.getApiKeys()
       setApiKeys(fresh)
-      setNewKeys({ openaiKey: '', geminiKey: '', xaiKey: '' })
+      setNewKeys({ openaiKey: '', geminiKey: '', xaiKey: '', sonorKey: '' })
     } catch {
       setMsg('Алдаа гарлаа')
       setMsgIsError(true)
@@ -253,6 +254,13 @@ export default function Settings() {
             value={newKeys.xaiKey}
             onChange={(v) => setNewKeys({ ...newKeys, xaiKey: v })}
             hint="Grok текст загвар ашиглах бол"
+          />
+          <ApiKeyField
+            label="SonorAI (Монгол Speech-to-Text) API Key"
+            masked={apiKeys.sonorKey}
+            value={newKeys.sonorKey}
+            onChange={(v) => setNewKeys({ ...newKeys, sonorKey: v })}
+            hint="Дуут мессежийг монголоор хамгийн нарийн таниулахад ашиглана"
           />
         </div>
         <Button onClick={saveApiKeys} disabled={saving}>API Keys хадгалах</Button>

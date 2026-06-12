@@ -234,6 +234,7 @@ export interface ApiKeys {
   openaiKey: string | null
   geminiKey: string | null
   xaiKey: string | null
+  sonorKey: string | null
   updatedAt?: string
 }
 

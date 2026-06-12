@@ -27,6 +27,7 @@ const apiKeysSchema = z.object({
   openaiKey: z.string().optional().nullable(),
   geminiKey: z.string().optional().nullable(),
   xaiKey: z.string().optional().nullable(),
+  sonorKey: z.string().optional().nullable(),
 })
 
 function getTenantId(req: Request): string {
@@ -101,7 +102,7 @@ router.get('/api-keys', async (req: Request, res: Response) => {
   const tenantId = getTenantId(req)
   const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
   if (!keys) {
-    res.json({ openaiKey: null, geminiKey: null, xaiKey: null })
+    res.json({ openaiKey: null, geminiKey: null, xaiKey: null, sonorKey: null })
     return
   }
 
@@ -110,6 +111,7 @@ router.get('/api-keys', async (req: Request, res: Response) => {
     openaiKey: keys.openaiKey ? maskKey(decrypt(keys.openaiKey)) : null,
     geminiKey: keys.geminiKey ? maskKey(decrypt(keys.geminiKey)) : null,
     xaiKey: keys.xaiKey ? maskKey(decrypt(keys.xaiKey)) : null,
+    sonorKey: keys.sonorKey ? maskKey(decrypt(keys.sonorKey)) : null,
     updatedAt: keys.updatedAt,
   })
 })
@@ -131,6 +133,9 @@ router.put('/api-keys', async (req: Request, res: Response) => {
   }
   if (parsed.data.xaiKey !== undefined) {
     data.xaiKey = parsed.data.xaiKey ? encrypt(parsed.data.xaiKey) : null
+  }
+  if (parsed.data.sonorKey !== undefined) {
+    data.sonorKey = parsed.data.sonorKey ? encrypt(parsed.data.sonorKey) : null
   }
 
   await prisma.tenantApiKeys.upsert({

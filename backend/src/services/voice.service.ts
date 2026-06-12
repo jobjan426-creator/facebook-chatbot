@@ -31,6 +31,16 @@ function looksLikeKazakh(text: string): boolean {
   return /[әғқңұіһӘҒҚҢҰІҺ]/.test(text)
 }
 
+// SonorAI only accepts wav, mp3, m4a, ogg, webm as `mime`.
+function mimeForSonor(contentType: string): string {
+  const type = contentType.toLowerCase()
+  if (type.includes('wav')) return 'audio/wav'
+  if (type.includes('mp4') || type.includes('m4a') || type.includes('aac')) return 'audio/m4a'
+  if (type.includes('ogg')) return 'audio/ogg'
+  if (type.includes('webm')) return 'audio/webm'
+  return 'audio/mpeg'
+}
+
 async function transcribeWithWhisper(
   audioBuffer: Buffer,
   contentType: string,
@@ -140,6 +150,52 @@ async function transcribeWithGemini(
   return transcript
 }
 
+async function transcribeWithSonor(
+  audioBuffer: Buffer,
+  contentType: string,
+  apiKey: string,
+  tenantId: string,
+  conversationId?: string
+): Promise<string> {
+  const base64Audio = audioBuffer.toString('base64')
+
+  const res = await fetch('https://sonor.online/v1/stt', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      audio: base64Audio,
+      mime: mimeForSonor(contentType),
+      lang: 'mn',
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Sonor STT API error: ${err}`)
+  }
+
+  const result = (await res.json()) as { text?: string; words?: number }
+  if (!result.text) throw new Error('Sonor returned empty transcription')
+
+  const durationSeconds = audioBuffer.length / 16000 // rough estimate
+  await prisma.aiUsageLog.create({
+    data: {
+      tenantId,
+      category: 'stt',
+      provider: 'sonor',
+      modelId: 'sonor-stt',
+      durationSeconds,
+      estimatedCostUsd: 0,
+      conversationId,
+    },
+  })
+
+  return result.text
+}
+
 export async function transcribeAudio(
   audioUrl: string,
   tenantId: string,
@@ -147,8 +203,8 @@ export async function transcribeAudio(
 ): Promise<string> {
   const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
 
-  if (!keys?.openaiKey && !keys?.geminiKey) {
-    throw new Error('Voice transcription requires OpenAI or Gemini API key')
+  if (!keys?.sonorKey && !keys?.openaiKey && !keys?.geminiKey) {
+    throw new Error('Voice transcription requires a Sonor, OpenAI, or Gemini API key')
   }
 
   // Download audio from Meta CDN
@@ -157,6 +213,28 @@ export async function transcribeAudio(
 
   const audioBuffer = await audioRes.buffer()
   const contentType = audioRes.headers.get('content-type') || 'audio/mpeg'
+
+  // SonorAI is purpose-built for Mongolian STT (explicit lang="mn") and has
+  // proven more reliable than Gemini/Whisper for this tenant's audio. Try it
+  // first, then Gemini, falling back to Whisper last.
+  if (keys.sonorKey) {
+    try {
+      logger.info({ tenantId }, 'Transcribing with Sonor')
+      return await transcribeWithSonor(
+        audioBuffer,
+        contentType,
+        decrypt(keys.sonorKey),
+        tenantId,
+        conversationId
+      )
+    } catch (err) {
+      if (!keys.geminiKey && !keys.openaiKey) throw err
+      logger.warn(
+        { tenantId, err: err instanceof Error ? err.message : String(err) },
+        'Sonor transcription failed — trying next provider'
+      )
+    }
+  }
 
   // Gemini has proven far more reliable than Whisper for Mongolian audio —
   // Whisper repeatedly misdetects Mongolian as English/Kazakh and produces
