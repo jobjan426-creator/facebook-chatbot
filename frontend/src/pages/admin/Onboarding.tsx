@@ -13,7 +13,7 @@ export default function Onboarding() {
   const [channels, setChannels] = useState<{ id: string; channelType: string; channelName: string | null; isActive: boolean }[]>([])
 
   // API Keys form
-  const [newKeys, setNewKeys] = useState({ geminiKey: '', openaiKey: '', xaiKey: '' })
+  const [newKeys, setNewKeys] = useState({ geminiKey: '', openaiKey: '', xaiKey: '', sonorKey: '' })
   const [savingKeys, setSavingKeys] = useState(false)
   const [keysMsg, setKeysMsg] = useState('')
 
@@ -106,11 +106,12 @@ export default function Onboarding() {
       if (newKeys.geminiKey) payload.geminiKey = newKeys.geminiKey
       if (newKeys.openaiKey) payload.openaiKey = newKeys.openaiKey
       if (newKeys.xaiKey) payload.xaiKey = newKeys.xaiKey
+      if (newKeys.sonorKey) payload.sonorKey = newKeys.sonorKey
       await api.updateApiKeys(payload, tenantId)
       setKeysMsg('success')
       const fresh = await api.getApiKeys(tenantId)
       setApiKeys(fresh)
-      setNewKeys({ geminiKey: '', openaiKey: '', xaiKey: '' })
+      setNewKeys({ geminiKey: '', openaiKey: '', xaiKey: '', sonorKey: '' })
     } catch {
       setKeysMsg('error')
     } finally {
@@ -282,6 +283,16 @@ export default function Onboarding() {
               placeholder="xai-..."
               hint="Grok текст загвар ашиглах бол"
               onChange={(v) => setNewKeys({ ...newKeys, xaiKey: v })}
+            />
+
+            {/* SonorAI — optional, Mongolian STT */}
+            <KeyField
+              label="SonorAI (Монгол Speech-to-Text) API Key"
+              masked={apiKeys.sonorKey}
+              value={newKeys.sonorKey}
+              placeholder="sk_snr_..."
+              hint="Дуут мессежийг монголоор хамгийн нарийн таниулахад ашиглана"
+              onChange={(v) => setNewKeys({ ...newKeys, sonorKey: v })}
             />
 
             <div className="flex items-center gap-3 pt-1">
