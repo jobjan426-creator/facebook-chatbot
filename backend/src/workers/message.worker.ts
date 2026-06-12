@@ -7,6 +7,7 @@ import { generateReply } from '../services/ai.service.js'
 import { transcribeAudio } from '../services/voice.service.js'
 import { analyzeImage, transcribeAudioWithGemini } from '../services/vision.service.js'
 import { queryKnowledgeBase } from '../services/rag.service.js'
+import { getEffectiveApiKeys } from '../services/api-keys.service.js'
 import { sendMessage, sendTypingAction } from '../services/meta.service.js'
 import { emitToTenant } from '../socket/index.js'
 import { flushBuffer, BufferedMessage } from '../services/buffer.service.js'
@@ -56,6 +57,9 @@ async function processMessages(job: Job<ProcessMessagesJob>): Promise<void> {
             logger.warn({ tenantId }, 'Tenant not found or not active, skipping')
             return
   }
+
+  // Fall back to shared platform keys for any key the tenant hasn't set itself.
+  tenant.apiKeys = await getEffectiveApiKeys(tenantId)
 
   const channel = await prisma.tenantChannel.findUnique({ where: { id: channelId } })
         if (!channel) {

@@ -1,7 +1,7 @@
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { decrypt } from './crypto.service.js'
-import { prisma } from '../lib/prisma.js'
+import { getEffectiveApiKeys } from './api-keys.service.js'
 import { generateContentWithFallback } from './gemini-client.js'
 import fetch from 'node-fetch'
 import pino from 'pino'
@@ -87,7 +87,7 @@ async function queryGeminiWithFile(
 }
 
 async function getGeminiKey(tenantId: string): Promise<string> {
-  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
+  const keys = await getEffectiveApiKeys(tenantId)
   if (!keys?.geminiKey) throw new Error('Gemini API key not configured for this tenant')
   return decrypt(keys.geminiKey)
 }
@@ -119,7 +119,7 @@ export async function analyzeImage(
   mimeType: string,
   userQuestion: string
 ): Promise<string> {
-  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
+  const keys = await getEffectiveApiKeys(tenantId)
   const cleanMime = mimeType.split(';')[0].trim() || 'image/jpeg'
   const prompt = `Энэ зургийг харж дэлгэрэнгүй тайлбарла. Харагдаж байгаа бүх объект, тоног төхөөрөмж, зүйлсийг нэрлэ. Хэрэглэгч дараах зүйлийг асуусан байна: "${userQuestion}"`
 

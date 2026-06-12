@@ -1,4 +1,5 @@
 import { decrypt } from './crypto.service.js'
+import { getEffectiveApiKeys } from './api-keys.service.js'
 import { prisma } from '../lib/prisma.js'
 import { calcSttCost, GEMINI_MODEL_ID } from '../config/model-pricing.js'
 import { generateContentWithFallback } from './gemini-client.js'
@@ -201,7 +202,7 @@ export async function transcribeAudio(
   tenantId: string,
   conversationId?: string
 ): Promise<string> {
-  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
+  const keys = await getEffectiveApiKeys(tenantId)
 
   if (!keys?.sonorKey && !keys?.openaiKey && !keys?.geminiKey) {
     throw new Error('Voice transcription requires a Sonor, OpenAI, or Gemini API key')

@@ -9,6 +9,7 @@ import Settings from '@/pages/app/Settings'
 import Usage from '@/pages/app/Usage'
 import Tenants from '@/pages/admin/Tenants'
 import Onboarding from '@/pages/admin/Onboarding'
+import PlatformKeys from '@/pages/admin/PlatformKeys'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { token, user } = useAuthStore()
@@ -34,6 +35,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         { to: '/admin', label: 'Тенантууд' },
         { to: '/admin/inbox', label: 'Inbox' },
         { to: '/admin/usage', label: 'Зардал' },
+        { to: '/admin/platform', label: 'API Keys' },
       ]
     : [
         { to: '/app', label: 'Inbox' },
@@ -103,6 +105,7 @@ export default function App() {
         <Route path="/admin/tenants/:tenantId/onboarding" element={<AuthGuard><SuperAdminGuard><AppLayout><Onboarding /></AppLayout></SuperAdminGuard></AuthGuard>} />
         <Route path="/admin/inbox" element={<AuthGuard><SuperAdminGuard><AppLayout><Inbox /></AppLayout></SuperAdminGuard></AuthGuard>} />
         <Route path="/admin/usage" element={<AuthGuard><SuperAdminGuard><AppLayout><Usage /></AppLayout></SuperAdminGuard></AuthGuard>} />
+        <Route path="/admin/platform" element={<AuthGuard><SuperAdminGuard><AppLayout><PlatformKeys /></AppLayout></SuperAdminGuard></AuthGuard>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

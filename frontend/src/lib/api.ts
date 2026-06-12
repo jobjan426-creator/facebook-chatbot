@@ -109,6 +109,15 @@ export const api = {
     })
   },
 
+  getPlatformApiKeys: () => request<ApiKeys>(`${BASE}/platform/api-keys`),
+
+  updatePlatformApiKeys: (data: Partial<ApiKeys>) => {
+    return request(`${BASE}/platform/api-keys`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
   // Knowledge base
   getKnowledgeFiles: (tenantId?: string) => {
     const qs = tenantId ? `?tenantId=${tenantId}` : ''

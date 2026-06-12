@@ -19,6 +19,7 @@ import messagesRouter from './routes/messages.js'
 import knowledgeRouter from './routes/knowledge.js'
 import channelsRouter from './routes/channels.js'
 import usageRouter from './routes/usage.js'
+import platformRouter from './routes/platform.js'
 
 const logger = pino({
         transport: env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
@@ -84,6 +85,7 @@ app.use('/api/messages', messagesRouter)
 app.use('/api/knowledge', knowledgeRouter)
 app.use('/api/channels', channelsRouter)
 app.use('/api/usage', usageRouter)
+app.use('/api/platform', platformRouter)
 app.use('/webhook', webhookRouter)
 
 // Serve frontend in production

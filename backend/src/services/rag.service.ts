@@ -1,6 +1,7 @@
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { decrypt } from './crypto.service.js'
+import { getEffectiveApiKeys } from './api-keys.service.js'
 import { prisma } from '../lib/prisma.js'
 import { GEMINI_MODEL_ID } from '../config/model-pricing.js'
 import { generateContentWithFallback } from './gemini-client.js'
@@ -124,7 +125,7 @@ export async function uploadFileToGemini(
   mimeType: string,
   fileSize: number
 ): Promise<string> {
-  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
+  const keys = await getEffectiveApiKeys(tenantId)
   if (!keys?.geminiKey) throw new Error('Gemini API key required for knowledge base')
   const apiKey = decrypt(keys.geminiKey)
 
@@ -192,7 +193,7 @@ export async function queryKnowledgeBase(
   tenantId: string,
   question: string
 ): Promise<string> {
-  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
+  const keys = await getEffectiveApiKeys(tenantId)
   if (!keys?.geminiKey && !keys?.openaiKey) return ''
   const apiKey = keys?.geminiKey ? decrypt(keys.geminiKey) : undefined
   const openaiKey = keys?.openaiKey ? decrypt(keys.openaiKey) : undefined
@@ -229,7 +230,7 @@ export async function deleteFileFromGemini(
   tenantId: string,
   fileId: string
 ): Promise<void> {
-  const keys = await prisma.tenantApiKeys.findUnique({ where: { tenantId } })
+  const keys = await getEffectiveApiKeys(tenantId)
   const file = await prisma.tenantKnowledgeFile.findUnique({ where: { id: fileId } })
   if (!file || file.tenantId !== tenantId) return
 

@@ -111,6 +111,17 @@ model TenantApiKeys {
   @@map("tenant_api_keys")
 }
 
+model PlatformApiKeys {
+  id        String   @id @default("global")
+  openaiKey String?  @map("openai_key")
+  geminiKey String?  @map("gemini_key")
+  xaiKey    String?  @map("xai_key")
+  sonorKey  String?  @map("sonor_key")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_api_keys")
+}
+
 model Conversation {
   id                  String             @id @default(uuid())
   tenantId            String             @map("tenant_id")
