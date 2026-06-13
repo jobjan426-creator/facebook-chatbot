@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma.js'
 import { redis } from '../lib/redis.js'
-import { postCommentReply, sendMessage } from '../services/meta.service.js'
+import { postCommentReply, postIgCommentReply, sendMessage } from '../services/meta.service.js'
 import { decrypt } from '../services/crypto.service.js'
 import { ConversationStatus, ChannelType } from '@prisma/client'
 import pino from 'pino'
@@ -33,7 +33,7 @@ export async function handleFbComment(tenantId: string, pageId: string, value: F
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
   if (!tenant?.commentAutoReplyEnabled) return
 
-  // Skip if this is a page replying to itself
+  // Skip the account replying to itself (its own comment/reply)
   if (value.from.id === pageId) return
 
   // Skip old posts
@@ -100,12 +100,25 @@ export async function handleIgComment(
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
   if (!tenant?.commentAutoReplyEnabled) return
 
+  // Skip the IG business account replying to itself
+  if (value.from.id === igAccountId) return
+
   const dedupKey = `comment_replied:${value.from.id}:${value.media.id}`
   const alreadyReplied = await redis.get(dedupKey)
   if (alreadyReplied) return
 
+  const accessToken = decrypt(channel.accessToken)
+
   try {
-    // Send DM (IG comment reply via DM)
+    // 1. Public reply under the comment (best-effort — requires
+    //    instagram_manage_comments; don't let a failure block the DM).
+    try {
+      await postIgCommentReply(value.id, tenant.commentAutoReplyText, accessToken)
+    } catch (replyErr) {
+      logger.warn({ replyErr, tenantId, commentId: value.id }, 'IG public comment reply failed')
+    }
+
+    // 2. Send DM (IG comment reply via DM)
     await sendMessage(channel, value.from.id, tenant.commentDmOpenerText)
 
     await redis.set(dedupKey, '1', 'EX', COMMENT_DEDUP_TTL)

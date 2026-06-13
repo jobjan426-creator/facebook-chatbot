@@ -62,6 +62,25 @@ export async function postCommentReply(
   }
 }
 
+// Instagram comments use a different endpoint than Facebook: a public reply is
+// posted to /{ig-comment-id}/replies (requires instagram_manage_comments).
+export async function postIgCommentReply(
+  commentId: string,
+  message: string,
+  accessToken: string
+): Promise<void> {
+  const res = await fetch(`${GRAPH_API}/${commentId}/replies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, access_token: accessToken }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`IG comment reply failed: ${res.status} ${body}`)
+  }
+}
+
 export async function exchangeForLongLivedToken(
   shortToken: string
 ): Promise<{ accessToken: string; expiresIn: number }> {
