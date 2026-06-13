@@ -48,10 +48,13 @@ export async function handleMetaWebhook(req: Request, res: Response): Promise<vo
               // FB Page: DM messages
           if (entry.messaging) {
                     for (const msg of entry.messaging) {
-                                if (msg.message) {
-                                              logger.info({ mid: msg.message.mid, senderId: msg.sender?.id }, 'Processing FB message')
-                                              await handleMessage(channel.tenantId, channelId, ChannelType.facebook_page, msg)
-                                }
+                                if (!msg.message) continue
+                                // Echo = the page's own outgoing message coming back as a
+                                // webhook (sender is the page itself). Never reply to it.
+                                const isEcho = msg.message.is_echo === true || msg.sender?.id === channelId
+                                logger.info({ object: body.object, senderId: msg.sender?.id, recipientId: msg.recipient?.id, isEcho, mid: msg.message.mid }, 'Processing FB message')
+                                if (isEcho) continue
+                                await handleMessage(channel.tenantId, channelId, ChannelType.facebook_page, msg)
                     }
           }
 
@@ -68,9 +71,14 @@ export async function handleMetaWebhook(req: Request, res: Response): Promise<vo
               // Instagram: DM messages
           if (entry.messaging) {
                     for (const msg of entry.messaging) {
-                                if (msg.message) {
-                                              await handleMessage(channel.tenantId, channelId, ChannelType.instagram, msg)
-                                }
+                                if (!msg.message) continue
+                                // Echo = the IG business account's own outgoing message
+                                // (sender is the business itself). Never reply to it —
+                                // otherwise we try to message ourselves → "No matching user found".
+                                const isEcho = msg.message.is_echo === true || msg.sender?.id === channelId
+                                logger.info({ object: body.object, senderId: msg.sender?.id, recipientId: msg.recipient?.id, isEcho, mid: msg.message.mid }, 'Processing IG message')
+                                if (isEcho) continue
+                                await handleMessage(channel.tenantId, channelId, ChannelType.instagram, msg)
                     }
           }
 
@@ -98,6 +106,7 @@ interface MetaWebhookPayload {
         message?: {
           mid: string
           text?: string
+          is_echo?: boolean
           attachments?: Array<{
             type: 'audio' | 'image' | 'video' | 'file'
             payload: { url: string }
