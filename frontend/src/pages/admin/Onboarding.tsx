@@ -486,10 +486,23 @@ export default function Onboarding() {
         {/* ── Step 4: Instagram ── */}
         <SectionCard step={4} title="Instagram" done={hasInstagram} description="Instagram DM автомат хариулах (заавал биш)" optional>
           {hasInstagram ? (
-            <ConnectedBadge
-              name={channels.find((c) => c.channelType === 'instagram' && c.isActive)?.channelName ?? 'Instagram'}
-              detail="Instagram DM хүлээн авч байна"
-            />
+            <div className="space-y-3">
+              <ConnectedBadge
+                name={channels.find((c) => c.channelType === 'instagram' && c.isActive)?.channelName ?? 'Instagram'}
+                detail="Instagram DM хүлээн авч байна"
+              />
+              <div className="flex items-center justify-between gap-3 px-1">
+                <p className="text-xs text-zinc-400">
+                  Webhook зөвшөөрөл шинэчлэх / DM хүлээж авахгүй бол дахин нэвтэрнэ үү.
+                </p>
+                <a
+                  href={`/api/channels/oauth/instagram?tenantId=${tenantId}&token=${authToken}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors flex-shrink-0"
+                >
+                  🔄 Дахин холбох
+                </a>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col items-center py-6 gap-3 text-center">
               <p className="text-sm text-zinc-500 max-w-xs">
