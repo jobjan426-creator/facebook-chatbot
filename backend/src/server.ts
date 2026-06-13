@@ -10,6 +10,71 @@ import { env } from './config/index.js'
 import { initSocket } from './socket/index.js'
 import { prisma } from './lib/prisma.js'
 
+const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Bota AI Platform</title>
+  <style>
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 760px; margin: 0 auto; padding: 40px 20px; color: #1a1a1a; line-height: 1.65; }
+    h1 { font-size: 28px; margin-bottom: 4px; }
+    h2 { font-size: 19px; margin-top: 32px; }
+    .updated { color: #666; font-size: 14px; margin-bottom: 24px; }
+    a { color: #1877F2; }
+    li { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Bota AI Platform · Last updated: 14 June 2026</p>
+
+  <p>Bota AI Platform ("we", "us", "the Service") provides an AI-powered messaging
+  assistant that connects to business pages on Facebook Messenger and Instagram to
+  automatically reply to customer messages on behalf of the business that owns the page.
+  This policy explains what data we process and why.</p>
+
+  <h2>Information we process</h2>
+  <ul>
+    <li><strong>Messages and comments</strong> sent to a connected Facebook Page or
+    Instagram professional account (text, voice messages, images), so the AI can
+    understand and respond to them.</li>
+    <li><strong>Basic public profile information</strong> (name, username, profile
+    picture) of the people messaging the connected page, used to display the
+    conversation to the business operator.</li>
+    <li><strong>Page access tokens</strong> provided by Meta when a business connects
+    its page, stored encrypted and used only to receive messages and send replies.</li>
+  </ul>
+
+  <h2>How we use information</h2>
+  <ul>
+    <li>To generate and send automated replies to customer messages and comments.</li>
+    <li>To transcribe voice messages and analyze images so the AI can respond to them.</li>
+    <li>To show the connected business its own conversations in an inbox.</li>
+  </ul>
+
+  <h2>Sharing with AI providers</h2>
+  <p>To generate replies, message content may be sent to third-party AI providers
+  (such as Google Gemini, OpenAI, and SonorAI for Mongolian speech recognition) strictly
+  to produce a response. These providers process the data on our behalf and we do not sell
+  personal data to anyone. Each connected business's data is processed in isolation and is
+  never mixed with another business's data.</p>
+
+  <h2>Data retention</h2>
+  <p>Conversation data is retained only as long as needed to operate the Service for the
+  connected business. A business can disconnect its page at any time, after which we stop
+  receiving its messages, and can request deletion of its data.</p>
+
+  <h2>Your rights</h2>
+  <p>Users may contact us to request access to, or deletion of, their data. Businesses can
+  remove a connected page from the Service settings at any time.</p>
+
+  <h2>Contact</h2>
+  <p>For any privacy questions or data deletion requests, contact:
+  <a href="mailto:jbota1814@gmail.com">jbota1814@gmail.com</a></p>
+</body>
+</html>`
+
 import authRouter from './routes/auth.js'
 import tenantsRouter from './routes/tenants.js'
 import settingsRouter from './routes/settings.js'
@@ -87,6 +152,12 @@ app.use('/api/channels', channelsRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/platform', platformRouter)
 app.use('/webhook', webhookRouter)
+
+// Public Privacy Policy (required for Meta App Review). Registered before the
+// SPA catch-all so it is served as a crawler-friendly static HTML page.
+app.get('/privacy', (_req: Request, res: Response) => {
+        res.type('html').send(PRIVACY_POLICY_HTML)
+})
 
 // Serve frontend in production
 if (env.NODE_ENV === 'production') {
