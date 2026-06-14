@@ -63,6 +63,21 @@ export default function Tenants() {
     setTenants((t) => t.map((x) => x.id === id ? { ...x, status: 'active' } : x))
   }
 
+  async function handleResetPassword(id: string, email: string) {
+    const newPassword = prompt(`"${email}"-ийн шинэ нууц үг (хамгийн багадаа 8 тэмдэгт):`)
+    if (newPassword === null) return
+    if (newPassword.length < 8) {
+      alert('Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой')
+      return
+    }
+    try {
+      await api.resetTenantPassword(id, newPassword)
+      alert(`Нууц үг шинэчлэгдлээ ✓\n\nНэвтрэх: ${email}\nНууц үг: ${newPassword}`)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Алдаа гарлаа')
+    }
+  }
+
   async function handleDelete(id: string) {
     if (!confirm('Тенантыг бүрмөсөн устгах уу?')) return
     await api.deleteTenant(id)
@@ -152,6 +167,7 @@ export default function Tenants() {
                       {t.status === 'suspended' && (
                         <Button size="sm" variant="outline" onClick={() => handleActivate(t.id)}>Идэвхжүүлэх</Button>
                       )}
+                      <Button size="sm" variant="outline" onClick={() => handleResetPassword(t.id, t.owner.email)}>Нууц үг</Button>
                       <Button size="sm" variant="destructive" onClick={() => handleDelete(t.id)}>Устгах</Button>
                     </div>
                   </td>

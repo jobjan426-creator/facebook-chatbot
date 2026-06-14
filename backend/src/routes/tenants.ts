@@ -114,6 +114,37 @@ router.patch('/:id', async (req: Request, res: Response) => {
   res.json(tenant)
 })
 
+const resetPasswordSchema = z.object({
+  newPassword: z.string().min(8),
+})
+
+// Super-admin resets a tenant owner's login password (e.g. when the tenant
+// forgot it). There is no public reset flow, so this is the recovery path.
+router.post('/:id/reset-password', async (req: Request, res: Response) => {
+  const parsed = resetPasswordSchema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой' })
+    return
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: req.params.id },
+    select: { ownerUserId: true },
+  })
+  if (!tenant) {
+    res.status(404).json({ error: 'Tenant not found' })
+    return
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12)
+  await prisma.user.update({
+    where: { id: tenant.ownerUserId },
+    data: { passwordHash, forcePasswordChange: false },
+  })
+
+  res.json({ success: true })
+})
+
 router.post('/:id/suspend', async (req: Request, res: Response) => {
   const { reason } = req.body
   const tenant = await prisma.tenant.update({

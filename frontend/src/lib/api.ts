@@ -161,6 +161,9 @@ export const api = {
   deleteTenant: (id: string) =>
     request(`${BASE}/tenants/${id}`, { method: 'DELETE' }),
 
+  resetTenantPassword: (id: string, newPassword: string) =>
+    request(`${BASE}/tenants/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
+
   // Usage
   getUsageSummary: (tenantId?: string) => {
     const qs = tenantId ? `?tenantId=${tenantId}` : ''
