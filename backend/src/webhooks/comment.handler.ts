@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma.js'
 import { redis } from '../lib/redis.js'
-import { postCommentReply, postIgCommentReply, sendMessage } from '../services/meta.service.js'
+import { postCommentReply, postIgCommentReply, sendPrivateReply } from '../services/meta.service.js'
 import { decrypt } from '../services/crypto.service.js'
 import { ConversationStatus, ChannelType } from '@prisma/client'
 import pino from 'pino'
@@ -52,8 +52,8 @@ export async function handleFbComment(tenantId: string, pageId: string, value: F
     // 1. Public comment reply
     await postCommentReply(value.comment_id, tenant.commentAutoReplyText, accessToken)
 
-    // 2. Send DM
-    await sendMessage(channel, value.from.id, tenant.commentDmOpenerText)
+    // 2. Send DM via private reply (works without an open messaging window)
+    await sendPrivateReply(channel, value.comment_id, tenant.commentDmOpenerText)
 
     // 3. Mark dedup
     await redis.set(dedupKey, '1', 'EX', COMMENT_DEDUP_TTL)
@@ -118,8 +118,9 @@ export async function handleIgComment(
       logger.warn({ replyErr, tenantId, commentId: value.id }, 'IG public comment reply failed')
     }
 
-    // 2. Send DM (IG comment reply via DM)
-    await sendMessage(channel, value.from.id, tenant.commentDmOpenerText)
+    // 2. Send DM via private reply to the comment (works without an open
+    //    messaging window — the correct comment→DM mechanism for fresh commenters)
+    await sendPrivateReply(channel, value.id, tenant.commentDmOpenerText)
 
     await redis.set(dedupKey, '1', 'EX', COMMENT_DEDUP_TTL)
 

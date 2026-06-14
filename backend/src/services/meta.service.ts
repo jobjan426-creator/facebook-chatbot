@@ -45,6 +45,34 @@ export async function sendMessage(
   }
 }
 
+// Private Reply: the correct way to open a DM in response to a comment. Unlike
+// recipient:{id} (which requires an already-open 24h messaging window), this
+// targets recipient:{comment_id}, so it works for a fresh commenter who has
+// never DMed the page. Gated on instagram_manage_comments + pages_messaging.
+// Works for both FB (value.comment_id) and IG (value.id) via /me/messages.
+export async function sendPrivateReply(
+  channel: TenantChannel,
+  commentId: string,
+  text: string
+): Promise<void> {
+  const accessToken = decrypt(channel.accessToken)
+
+  const res = await fetch(`${GRAPH_API}/me/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      access_token: accessToken,
+      recipient: { comment_id: commentId },
+      message: { text },
+    }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Private reply failed: ${res.status} ${body}`)
+  }
+}
+
 export async function postCommentReply(
   commentId: string,
   message: string,
