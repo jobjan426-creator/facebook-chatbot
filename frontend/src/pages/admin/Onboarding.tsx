@@ -22,6 +22,13 @@ export default function Onboarding() {
   const [savingPersona, setSavingPersona] = useState(false)
   const [personaMsg, setPersonaMsg] = useState('')
 
+  // Comment auto-reply
+  const [commentEnabled, setCommentEnabled] = useState(false)
+  const [commentReplyText, setCommentReplyText] = useState('')
+  const [commentDmText, setCommentDmText] = useState('')
+  const [savingComment, setSavingComment] = useState(false)
+  const [commentMsg, setCommentMsg] = useState('')
+
   // Facebook
   const [fbMode, setFbMode] = useState<FbMode>('manual')
   const [fbPageId, setFbPageId] = useState('')
@@ -56,6 +63,9 @@ export default function Onboarding() {
       setChannels(c)
       setKnowledgeFiles(kf)
       setPersona(s.aiPersona || '')
+      setCommentEnabled(s.commentAutoReplyEnabled ?? false)
+      setCommentReplyText(s.commentAutoReplyText ?? '')
+      setCommentDmText(s.commentDmOpenerText ?? '')
     }).catch((err) => {
       setLoadError(err instanceof Error ? err.message : 'Өгөгдөл ачааллахад алдаа гарлаа')
     })
@@ -133,6 +143,27 @@ export default function Onboarding() {
     } finally {
       setSavingPersona(false)
       setTimeout(() => setPersonaMsg(''), 3000)
+    }
+  }
+
+  async function saveComment() {
+    if (!tenantId || !settings) return
+    setSavingComment(true)
+    try {
+      await api.updatePersona({
+        aiPersona: persona || settings.aiPersona,
+        commentAutoReplyEnabled: commentEnabled,
+        commentAutoReplyText: commentReplyText,
+        commentDmOpenerText: commentDmText,
+      }, tenantId)
+      setCommentMsg('success')
+      const fresh = await api.getSettings(tenantId)
+      setSettings(fresh)
+    } catch {
+      setCommentMsg('error')
+    } finally {
+      setSavingComment(false)
+      setTimeout(() => setCommentMsg(''), 3000)
     }
   }
 
@@ -332,6 +363,47 @@ export default function Onboarding() {
                   {savingPersona ? 'Хадгалж байна...' : 'Хадгалах'}
                 </Button>
               </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* ── Comment Auto-Reply ── */}
+        <SectionCard step="💬" title="Comment автомат хариу" done={settings.commentAutoReplyEnabled} description="Постын comment-д нийтэд харагдах хариу бичээд DM илгээнэ (Facebook + Instagram)" optional>
+          <div className="space-y-4">
+            <label className="flex items-center gap-2.5 cursor-pointer p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+              <input
+                type="checkbox"
+                checked={commentEnabled}
+                onChange={(e) => setCommentEnabled(e.target.checked)}
+                className="w-4 h-4 accent-emerald-600"
+              />
+              <span className="text-sm font-semibold text-emerald-900">Comment автомат хариу идэвхжүүлэх</span>
+            </label>
+            <div>
+              <label className="block text-xs font-medium text-zinc-500 mb-1.5">Нийтэд харагдах comment хариу</label>
+              <textarea
+                value={commentReplyText}
+                onChange={(e) => setCommentReplyText(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-zinc-50"
+                placeholder="Жишээ: Танд хувийн мессежээр дэлгэрэнгүй мэдээлэл илгээлээ 📩"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-500 mb-1.5">DM эхний мессеж</label>
+              <textarea
+                value={commentDmText}
+                onChange={(e) => setCommentDmText(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-zinc-50"
+                placeholder="Жишээ: Сайн байна уу! Таны асуусан мэдээллийг энд хүргэе 👇"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button onClick={saveComment} disabled={savingComment} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                {savingComment ? 'Хадгалж байна...' : 'Хадгалах'}
+              </Button>
+              <FeedbackMsg state={commentMsg} />
             </div>
           </div>
         </SectionCard>
