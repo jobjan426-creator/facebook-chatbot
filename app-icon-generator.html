@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="mn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bota AI — App Icon Generator (1024×1024)</title>
+  <style>
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0f1020; color:#e9e9f2;
+           margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; padding:32px; }
+    h1 { font-size:20px; font-weight:700; margin:0; }
+    p  { color:#a8a8c0; font-size:14px; margin:0; text-align:center; max-width:520px; line-height:1.6; }
+    #preview { width:288px; height:288px; border-radius:64px; box-shadow:0 24px 60px rgba(124,58,237,.35); }
+    canvas { display:none; }
+    button { font-size:15px; font-weight:600; color:#fff; background:#4f46e5; border:0; border-radius:12px;
+             padding:14px 26px; cursor:pointer; transition:background .15s; }
+    button:hover { background:#4338ca; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+    .sec { background:#1c1d33; color:#c8c8e0; }
+    .sec:hover { background:#26284a; }
+    code { background:#1c1d33; padding:2px 7px; border-radius:6px; font-size:13px; }
+  </style>
+</head>
+<body>
+  <h1>Bota AI — App Icon</h1>
+  <img id="preview" alt="icon preview">
+  <div class="row">
+    <button onclick="download(1024)">⬇ Download PNG (1024×1024)</button>
+    <button class="sec" onclick="download(512)">512×512</button>
+    <button class="sec" onclick="download(180)">180×180</button>
+  </div>
+  <p>Доорх <b>1024×1024</b>-г татаад Meta App Dashboard → Settings → Basic → <b>App Icon</b>-д
+     байршуулна уу. Файлын нэр: <code>bota-ai-icon-&lt;хэмжээ&gt;.png</code></p>
+
+  <canvas id="c" width="1024" height="1024"></canvas>
+
+  <script>
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    // 8-point sparkle centered at (cx,cy); R = outer radius, w = waist ratio
+    function sparkle(ctx, cx, cy, R, wRatio) {
+      const i = R * wRatio;
+      ctx.beginPath();
+      ctx.moveTo(cx,     cy - R);
+      ctx.lineTo(cx + i, cy - i);
+      ctx.lineTo(cx + R, cy);
+      ctx.lineTo(cx + i, cy + i);
+      ctx.lineTo(cx,     cy + R);
+      ctx.lineTo(cx - i, cy + i);
+      ctx.lineTo(cx - R, cy);
+      ctx.lineTo(cx - i, cy - i);
+      ctx.closePath();
+    }
+
+    function draw() {
+      const ctx = document.getElementById('c').getContext('2d');
+      ctx.clearRect(0, 0, 1024, 1024);
+
+      // squircle background
+      const bg = ctx.createLinearGradient(0, 0, 1024, 1024);
+      bg.addColorStop(0, '#4f46e5');
+      bg.addColorStop(1, '#7c3aed');
+      roundRect(ctx, 0, 0, 1024, 1024, 232);
+      ctx.fillStyle = bg;
+      ctx.fill();
+
+      // speech bubble + tail
+      ctx.fillStyle = '#ffffff';
+      roundRect(ctx, 232, 236, 560, 404, 124);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(392, 600);
+      ctx.lineTo(356, 760);
+      ctx.lineTo(520, 606);
+      ctx.closePath();
+      ctx.fill();
+
+      // sparkle gradient
+      const sg = ctx.createLinearGradient(362, 280, 662, 580);
+      sg.addColorStop(0, '#6366f1');
+      sg.addColorStop(1, '#7c3aed');
+
+      ctx.fillStyle = sg;
+      sparkle(ctx, 512, 438, 152, 0.18);
+      ctx.fill();
+
+      ctx.globalAlpha = 0.55;
+      sparkle(ctx, 676, 354, 54, 0.20);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      document.getElementById('preview').src = document.getElementById('c').toDataURL('image/png');
+    }
+
+    function download(size) {
+      const src = document.getElementById('c');
+      const out = document.createElement('canvas');
+      out.width = out.height = size;
+      out.getContext('2d').drawImage(src, 0, 0, size, size);
+      out.toBlob(function (blob) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'bota-ai-icon-' + size + '.png';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }, 'image/png');
+    }
+
+    draw();
+  </script>
+</body>
+</html>

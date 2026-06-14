@@ -48,7 +48,10 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col bg-zinc-50">
       <nav className="bg-white border-b border-zinc-200 px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3 sm:gap-6 min-w-0">
-          <span className="font-bold text-zinc-900 shrink-0">AI Platform</span>
+          <span className="flex items-center gap-2 shrink-0">
+            <img src="/icon.svg" alt="" className="w-6 h-6 rounded-md" />
+            <span className="font-bold text-zinc-900">AI Platform</span>
+          </span>
           <div className="flex gap-3 sm:gap-4 overflow-x-auto">
             {navLinks.map((link) => (
               <Link

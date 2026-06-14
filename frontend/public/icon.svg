@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="spark" x1="362" y1="280" x2="662" y2="580" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+
+  <!-- squircle background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="232" fill="url(#bg)"/>
+
+  <!-- speech bubble -->
+  <rect x="232" y="236" width="560" height="404" rx="124" fill="#ffffff"/>
+  <path d="M392 600 L356 760 L520 606 Z" fill="#ffffff"/>
+
+  <!-- main AI sparkle inside the bubble -->
+  <path d="M512 286 L540 410 L664 438 L540 466 L512 590 L484 466 L360 438 L484 410 Z" fill="url(#spark)"/>
+
+  <!-- small accent sparkle -->
+  <path d="M676 300 L687 343 L730 354 L687 365 L676 408 L665 365 L622 354 L665 343 Z" fill="url(#spark)" opacity="0.55"/>
+</svg>
