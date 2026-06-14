@@ -91,10 +91,7 @@ export default function Login() {
             className="w-16 h-16 mx-auto mb-4 rounded-2xl shadow-md shadow-indigo-200"
           />
           <h1 className="text-2xl font-bold text-zinc-900">AI Platform</h1>
-          <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500 mt-1">
-            Bota AI Agent
-          </p>
-          <p className="text-sm text-zinc-500 mt-3">Нэвтрэх</p>
+          <p className="text-sm text-zinc-500 mt-1">Нэвтрэх</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-4">
           <div>

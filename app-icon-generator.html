@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bota AI — App Icon Generator (1024×1024)</title>
+  <title>AI Platform — App Icon Generator (1024×1024)</title>
   <style>
     body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0f1020; color:#e9e9f2;
            margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; padding:32px; }
@@ -21,7 +21,7 @@
   </style>
 </head>
 <body>
-  <h1>Bota AI — App Icon</h1>
+  <h1>AI Platform — App Icon</h1>
   <img id="preview" alt="icon preview">
   <div class="row">
     <button onclick="download(1024)">⬇ Download PNG (1024×1024)</button>
@@ -29,7 +29,7 @@
     <button class="sec" onclick="download(180)">180×180</button>
   </div>
   <p>Доорх <b>1024×1024</b>-г татаад Meta App Dashboard → Settings → Basic → <b>App Icon</b>-д
-     байршуулна уу. Файлын нэр: <code>bota-ai-icon-&lt;хэмжээ&gt;.png</code></p>
+     байршуулна уу. Файлын нэр: <code>ai-platform-icon-&lt;хэмжээ&gt;.png</code></p>
 
   <canvas id="c" width="1024" height="1024"></canvas>
 
@@ -107,7 +107,7 @@
       out.toBlob(function (blob) {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'bota-ai-icon-' + size + '.png';
+        a.download = 'ai-platform-icon-' + size + '.png';
         a.click();
         URL.revokeObjectURL(a.href);
       }, 'image/png');
